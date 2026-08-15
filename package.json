@@ -1,6 +1,6 @@
 {
   "name": "clipdeck",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "A fast, private, open-source clipboard history manager for Windows, macOS and Linux.",
   "main": "main.js",
   "author": "Yavuz Cingöz",
@@ -8,7 +8,7 @@
   "private": false,
   "scripts": {
     "start": "electron .",
-    "check": "node --check main.js && node --check preload.js && node --check src/history-store.js && node --check src/renderer/app.js && node --check src/quick/app.js",
+    "check": "node --check main.js && node --check preload.js && node --check src/history-store.js && node --check src/snippet-store.js && node --check src/password-generator.js && node --check src/vault-store.js && node --check src/renderer/app.js && node --check src/quick/app.js",
     "test": "node --test",
     "package": "electron-builder --dir --publish never",
     "dist:win": "electron-builder --win nsis --x64 --publish never"

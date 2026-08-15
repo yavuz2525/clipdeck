@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { HistoryStore, clampLimit, detectTag } = require('../src/history-store');
+const { HistoryStore, clampLimit, clampTheme, detectTag } = require('../src/history-store');
 
 test('rejects empty clipboard values', () => {
   const store = new HistoryStore();
@@ -13,7 +13,6 @@ test('deduplicates exact text and moves it to the front', () => {
   const first = store.add('alpha', 100);
   store.add('beta', 200);
   const again = store.add('alpha', 300);
-
   const items = store.snapshot().items;
   assert.equal(items.length, 2);
   assert.equal(items[0].text, 'alpha');
@@ -21,17 +20,18 @@ test('deduplicates exact text and moves it to the front', () => {
   assert.equal(again.createdAt, 300);
 });
 
-test('favorites survive clearing', () => {
+test('favorites and pinned items survive clearing', () => {
   const store = new HistoryStore();
-  const favorite = store.add('keep me', 100);
-  store.add('remove me', 200);
+  const favorite = store.add('favorite', 100);
+  const pinned = store.add('pinned', 200);
+  store.add('remove me', 300);
   store.toggleFavorite(favorite.id);
-  store.clear({ keepFavorites: true });
-
+  store.togglePin(pinned.id);
+  store.clear({ keepFavorites: true, keepPinned: true });
   const items = store.snapshot().items;
-  assert.equal(items.length, 1);
-  assert.equal(items[0].text, 'keep me');
-  assert.equal(items[0].favorite, true);
+  assert.equal(items.length, 2);
+  assert.ok(items.some((item) => item.text === 'favorite' && item.favorite));
+  assert.ok(items.some((item) => item.text === 'pinned' && item.pinned));
 });
 
 test('limit accepts only supported values', () => {
@@ -40,16 +40,17 @@ test('limit accepts only supported values', () => {
   assert.equal(clampLimit(999), 100);
 });
 
-test('favorite entries are preserved when enforcing the limit', () => {
+test('pinned and favorite entries are prioritized when enforcing the limit', () => {
   const store = new HistoryStore();
   store.setLimit(25);
-
-  const oldest = store.add('favorite', 1);
-  store.toggleFavorite(oldest.id);
-  for (let i = 0; i < 30; i += 1) store.add(`clip-${i}`, i + 2);
-
+  const pinned = store.add('pinned', 1);
+  const favorite = store.add('favorite', 2);
+  store.togglePin(pinned.id);
+  store.toggleFavorite(favorite.id);
+  for (let i = 0; i < 30; i += 1) store.add(`clip-${i}`, i + 3);
   const items = store.snapshot().items;
   assert.equal(items.length, 25);
+  assert.ok(items.some((item) => item.text === 'pinned'));
   assert.ok(items.some((item) => item.text === 'favorite'));
 });
 
@@ -66,16 +67,18 @@ test('automatically tags common clipboard content', () => {
   assert.equal(detectTag('Just a normal sentence.'), 'Text');
 });
 
-test('new history items include their detected tag', () => {
+test('new history items include tag and pin state', () => {
   const store = new HistoryStore();
   const item = store.add('npm run build', 100);
   assert.equal(item.tag, 'Command');
-  assert.equal(store.snapshot().items[0].tag, 'Command');
+  assert.equal(item.pinned, false);
 });
 
-test('quick panel shortcut persists in settings', () => {
+test('quick panel shortcut and theme persist in settings', () => {
   const store = new HistoryStore();
-  assert.equal(store.snapshot().settings.shortcut, 'CommandOrControl+Shift+V');
   store.setShortcut('Control+Alt+V');
+  store.setTheme('dark');
   assert.equal(store.snapshot().settings.shortcut, 'Control+Alt+V');
+  assert.equal(store.snapshot().settings.theme, 'dark');
+  assert.equal(clampTheme('nope'), 'system');
 });

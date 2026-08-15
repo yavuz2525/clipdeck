@@ -18,7 +18,7 @@
           <span class="logo" aria-hidden="true">CD</span>
           <h1>ClipDeck</h1>
         </div>
-        <p>Private clipboard history, kept on this device.</p>
+        <p>Clipboard history, reusable snippets and a local secure vault.</p>
       </div>
       <div class="topbar-actions">
         <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings" title="Settings">⚙</button>
@@ -28,56 +28,144 @@
       </div>
     </header>
 
-    <section class="toolbar" aria-label="Clipboard controls">
-      <label class="search-wrap" for="searchInput">
-        <span aria-hidden="true">⌕</span>
-        <input id="searchInput" type="search" placeholder="Search text or tags…" autocomplete="off" />
-      </label>
-      <button id="favoritesButton" class="filter-button" type="button" aria-pressed="false">★ Favorites</button>
+    <nav class="view-tabs" aria-label="ClipDeck sections">
+      <button class="view-tab active" type="button" data-view="history">History</button>
+      <button class="view-tab" type="button" data-view="snippets">Snippets</button>
+      <button class="view-tab" type="button" data-view="vault">Vault</button>
+    </nav>
+
+    <section id="historyView" class="app-view">
+      <section class="toolbar" aria-label="Clipboard controls">
+        <label class="search-wrap" for="searchInput">
+          <span aria-hidden="true">⌕</span>
+          <input id="searchInput" type="search" placeholder="Search text or tags…" autocomplete="off" />
+        </label>
+        <button id="pinnedButton" class="filter-button" type="button" aria-pressed="false">⌖ Pinned</button>
+        <button id="favoritesButton" class="filter-button" type="button" aria-pressed="false">★ Favorites</button>
+      </section>
+
+      <section id="tagFilters" class="tag-filters" aria-label="Automatic tag filters"></section>
+
+      <section class="summary-row" aria-live="polite">
+        <span id="countLabel">0 clips</span>
+        <div class="summary-actions">
+          <label for="limitSelect">Keep</label>
+          <select id="limitSelect" aria-label="Clipboard history limit">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="250">250</option>
+          </select>
+          <button id="clearButton" class="text-button danger" type="button">Clear</button>
+        </div>
+      </section>
+
+      <section id="statusBanner" class="status-banner hidden" aria-live="polite"></section>
+
+      <section id="emptyState" class="empty-state hidden">
+        <div class="empty-icon" aria-hidden="true">⌘V</div>
+        <h2>No clips yet</h2>
+        <p>Copy some text and it will appear here automatically.</p>
+      </section>
+
+      <section id="clipsList" class="clips-list" aria-label="Clipboard history timeline"></section>
     </section>
 
-    <section id="tagFilters" class="tag-filters" aria-label="Automatic tag filters"></section>
-
-    <section class="summary-row" aria-live="polite">
-      <span id="countLabel">0 clips</span>
-      <div class="summary-actions">
-        <label for="limitSelect">Keep</label>
-        <select id="limitSelect" aria-label="Clipboard history limit">
-          <option value="25">25</option>
-          <option value="50">50</option>
-          <option value="100">100</option>
-          <option value="250">250</option>
-        </select>
-        <button id="clearButton" class="text-button danger" type="button">Clear</button>
+    <section id="snippetsView" class="app-view hidden">
+      <div class="section-head">
+        <div>
+          <h2>Snippets</h2>
+          <p>Save reusable text and use <code>{{variable}}</code> placeholders.</p>
+        </div>
+        <button id="newSnippetButton" class="text-button primary" type="button">+ New snippet</button>
       </div>
+      <label class="search-wrap standalone-search" for="snippetSearch">
+        <span aria-hidden="true">⌕</span>
+        <input id="snippetSearch" type="search" placeholder="Search snippets…" autocomplete="off" />
+      </label>
+      <section id="snippetsEmpty" class="empty-state hidden">
+        <div class="empty-icon" aria-hidden="true">{ }</div>
+        <h2>No snippets yet</h2>
+        <p>Create a reusable template or turn any clipboard item into one.</p>
+      </section>
+      <section id="snippetsList" class="content-list" aria-label="Saved snippets"></section>
     </section>
 
-    <section id="statusBanner" class="status-banner hidden" aria-live="polite"></section>
+    <section id="vaultView" class="app-view hidden">
+      <div class="section-head">
+        <div>
+          <h2>Vault</h2>
+          <p>Generate passwords and store them with OS-protected encryption.</p>
+        </div>
+        <button id="newVaultButton" class="text-button primary" type="button">+ New entry</button>
+      </div>
+
+      <section id="vaultWarning" class="status-banner hidden" aria-live="polite"></section>
+
+      <section class="generator-card">
+        <div class="generator-head">
+          <div>
+            <h3>Password generator</h3>
+            <p>Generated locally using cryptographic randomness.</p>
+          </div>
+          <label class="length-control">Length <input id="passwordLength" type="number" min="8" max="128" value="20" /></label>
+        </div>
+        <div class="generator-options">
+          <label><input id="genLowercase" type="checkbox" checked /> a-z</label>
+          <label><input id="genUppercase" type="checkbox" checked /> A-Z</label>
+          <label><input id="genNumbers" type="checkbox" checked /> 0-9</label>
+          <label><input id="genSymbols" type="checkbox" checked /> Symbols</label>
+        </div>
+        <div class="generated-row">
+          <input id="generatedPassword" class="mono-input" type="text" readonly aria-label="Generated password" />
+          <button id="generatePasswordButton" class="text-button" type="button">Generate</button>
+          <button id="copyGeneratedButton" class="text-button" type="button">Copy</button>
+          <button id="saveGeneratedButton" class="text-button primary" type="button">Save</button>
+        </div>
+      </section>
+
+      <label class="search-wrap standalone-search" for="vaultSearch">
+        <span aria-hidden="true">⌕</span>
+        <input id="vaultSearch" type="search" placeholder="Search vault…" autocomplete="off" />
+      </label>
+
+      <section id="vaultEmpty" class="empty-state hidden">
+        <div class="empty-icon" aria-hidden="true">⌾</div>
+        <h2>No vault entries</h2>
+        <p>Store a login or save a generated password.</p>
+      </section>
+      <section id="vaultList" class="content-list" aria-label="Password vault"></section>
+    </section>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
-
-    <section id="emptyState" class="empty-state hidden">
-      <div class="empty-icon" aria-hidden="true">⌘V</div>
-      <h2>No clips yet</h2>
-      <p>Copy some text and it will appear here automatically.</p>
-    </section>
-
-    <section id="clipsList" class="clips-list" aria-label="Clipboard history timeline"></section>
 
     <footer class="footer">
       <span>Quick panel: <kbd id="footerShortcut">Ctrl/⌘ + Shift + V</kbd></span>
-      <span>Local only</span>
+      <span>Local first</span>
     </footer>
   </main>
 
-  <div id="settingsOverlay" class="settings-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
-    <section class="settings-panel">
-      <header class="settings-header">
+  <div id="settingsOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <section class="modal settings-panel">
+      <header class="modal-header">
         <div>
           <h2 id="settingsTitle">Settings</h2>
-          <p>ClipDeck preferences are stored only on this device.</p>
+          <p>Preferences are stored only on this device.</p>
         </div>
         <button id="settingsCloseButton" class="icon-button" type="button" aria-label="Close settings">×</button>
       </header>
+
+      <div class="setting-card">
+        <div class="setting-copy">
+          <h3>Theme</h3>
+          <p>Follow your operating system or force a light/dark appearance.</p>
+        </div>
+        <select id="themeSelect" class="wide-select" aria-label="Theme">
+          <option value="system">System</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+        </select>
+      </div>
 
       <div class="setting-card">
         <div class="setting-copy">
@@ -105,6 +193,70 @@
     </section>
   </div>
 
+  <div id="snippetEditorOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="snippetEditorTitle">
+    <section class="modal editor-modal">
+      <header class="modal-header">
+        <div>
+          <h2 id="snippetEditorTitle">New snippet</h2>
+          <p>Use placeholders like <code>{{name}}</code> or <code>{{date}}</code>.</p>
+        </div>
+        <button id="snippetEditorClose" class="icon-button" type="button" aria-label="Close snippet editor">×</button>
+      </header>
+      <input id="snippetId" type="hidden" />
+      <label class="field">Name<input id="snippetName" type="text" maxlength="80" placeholder="Support reply" /></label>
+      <label class="field">Template<textarea id="snippetTemplate" rows="9" placeholder="Hello {{name}}, ..."></textarea></label>
+      <div class="modal-actions">
+        <button id="snippetCancelButton" class="text-button" type="button">Cancel</button>
+        <button id="snippetSaveButton" class="text-button primary" type="button">Save snippet</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="snippetUseOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="snippetUseTitle">
+    <section class="modal editor-modal small-modal">
+      <header class="modal-header">
+        <div>
+          <h2 id="snippetUseTitle">Fill template</h2>
+          <p>Enter values for the template placeholders.</p>
+        </div>
+        <button id="snippetUseClose" class="icon-button" type="button" aria-label="Close template form">×</button>
+      </header>
+      <div id="snippetVariableFields" class="variable-fields"></div>
+      <div class="modal-actions">
+        <button id="snippetUseCancel" class="text-button" type="button">Cancel</button>
+        <button id="snippetUseCopy" class="text-button primary" type="button">Copy result</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="vaultEditorOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-labelledby="vaultEditorTitle">
+    <section class="modal editor-modal">
+      <header class="modal-header">
+        <div>
+          <h2 id="vaultEditorTitle">New vault entry</h2>
+          <p>The saved payload is encrypted before it is written to disk.</p>
+        </div>
+        <button id="vaultEditorClose" class="icon-button" type="button" aria-label="Close vault editor">×</button>
+      </header>
+      <input id="vaultId" type="hidden" />
+      <label class="field">Title<input id="vaultTitle" type="text" maxlength="100" placeholder="GitHub" /></label>
+      <label class="field">Username / email<input id="vaultUsername" type="text" autocomplete="off" /></label>
+      <label class="field">Password
+        <div class="inline-field">
+          <input id="vaultPassword" type="password" autocomplete="new-password" />
+          <button id="vaultGenerateButton" class="text-button" type="button">Generate</button>
+          <button id="vaultRevealButton" class="text-button" type="button">Show</button>
+        </div>
+      </label>
+      <label class="field">URL<input id="vaultUrl" type="text" placeholder="https://example.com" /></label>
+      <label class="field">Notes<textarea id="vaultNotes" rows="4"></textarea></label>
+      <div class="modal-actions">
+        <button id="vaultCancelButton" class="text-button" type="button">Cancel</button>
+        <button id="vaultSaveButton" class="text-button primary" type="button">Save securely</button>
+      </div>
+    </section>
+  </div>
+
   <template id="clipTemplate">
     <article class="clip-card">
       <div class="clip-meta">
@@ -117,6 +269,8 @@
       <button class="clip-text" type="button" title="Copy to clipboard"></button>
       <div class="clip-actions">
         <button class="action copy-action" type="button">Copy</button>
+        <button class="action snippet-action" type="button">Snippet</button>
+        <button class="action pin-action" type="button" aria-label="Toggle pin">⌖</button>
         <button class="action favorite-action" type="button" aria-label="Toggle favorite">☆</button>
         <button class="action delete-action danger" type="button" aria-label="Delete clip">Delete</button>
       </div>

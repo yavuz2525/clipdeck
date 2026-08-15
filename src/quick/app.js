@@ -2,7 +2,7 @@ const searchInput = document.querySelector('#quickSearch');
 const list = document.querySelector('#quickList');
 const empty = document.querySelector('#quickEmpty');
 
-let state = { items: [], settings: { limit: 100, paused: false } };
+let state = { items: [], settings: { limit: 100, paused: false, theme: 'system' } };
 let selectedIndex = 0;
 let visibleItems = [];
 
@@ -16,9 +16,14 @@ function relativeTime(timestamp) {
   return `${Math.floor(hours / 24)}d`;
 }
 
+function applyTheme() {
+  document.documentElement.dataset.theme = state.settings.theme || 'system';
+}
+
 function results() {
   const query = searchInput.value.trim().toLocaleLowerCase();
-  return state.items
+  return [...state.items]
+    .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.createdAt - a.createdAt)
     .filter((item) => {
       if (!query) return true;
       return item.text.toLocaleLowerCase().includes(query)
@@ -33,6 +38,7 @@ async function copyItem(item) {
 }
 
 function render() {
+  applyTheme();
   visibleItems = results();
   selectedIndex = Math.min(selectedIndex, Math.max(0, visibleItems.length - 1));
   list.replaceChildren();
@@ -49,7 +55,7 @@ function render() {
 
     const tag = document.createElement('span');
     tag.className = 'item-tag';
-    tag.textContent = item.tag;
+    tag.textContent = item.pinned ? `⌖ ${item.tag}` : item.tag;
 
     const time = document.createElement('span');
     time.textContent = relativeTime(item.createdAt);

@@ -3,17 +3,23 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const DEFAULT_SHORTCUT = 'CommandOrControl+Shift+V';
+const THEMES = new Set(['system', 'dark', 'light']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   limit: 100,
   paused: false,
   shortcut: DEFAULT_SHORTCUT,
+  theme: 'system',
 });
 
 function clampLimit(value) {
   const numeric = Number(value);
   if (![25, 50, 100, 250].includes(numeric)) return 100;
   return numeric;
+}
+
+function clampTheme(value) {
+  return THEMES.has(value) ? value : 'system';
 }
 
 function looksLikeJson(value) {
@@ -99,6 +105,7 @@ class HistoryStore {
             createdAt: Number(item.createdAt) || Date.now(),
             lastCopiedAt: Number(item.lastCopiedAt) || Number(item.createdAt) || Date.now(),
             favorite: Boolean(item.favorite),
+            pinned: Boolean(item.pinned),
           })),
         settings: {
           limit: clampLimit(settings.limit),
@@ -106,6 +113,7 @@ class HistoryStore {
           shortcut: typeof settings.shortcut === 'string' && settings.shortcut.trim()
             ? settings.shortcut.trim()
             : DEFAULT_SHORTCUT,
+          theme: clampTheme(settings.theme),
         },
       };
       this.enforceLimit();
@@ -151,6 +159,7 @@ class HistoryStore {
         createdAt: now,
         lastCopiedAt: now,
         favorite: false,
+        pinned: false,
       };
     }
 
@@ -178,6 +187,14 @@ class HistoryStore {
     return { ...item };
   }
 
+  togglePin(id) {
+    const item = this.state.items.find((entry) => entry.id === id);
+    if (!item) return null;
+    item.pinned = !item.pinned;
+    this.persist();
+    return { ...item };
+  }
+
   remove(id) {
     const before = this.state.items.length;
     this.state.items = this.state.items.filter((item) => item.id !== id);
@@ -186,10 +203,10 @@ class HistoryStore {
     return changed;
   }
 
-  clear({ keepFavorites = true } = {}) {
-    this.state.items = keepFavorites
-      ? this.state.items.filter((item) => item.favorite)
-      : [];
+  clear({ keepFavorites = true, keepPinned = true } = {}) {
+    this.state.items = this.state.items.filter((item) => (
+      (keepFavorites && item.favorite) || (keepPinned && item.pinned)
+    ));
     this.persist();
   }
 
@@ -213,16 +230,22 @@ class HistoryStore {
     return this.state.settings.shortcut;
   }
 
+  setTheme(theme) {
+    this.state.settings.theme = clampTheme(theme);
+    this.persist();
+    return this.state.settings.theme;
+  }
+
   enforceLimit() {
     const limit = this.state.settings.limit;
     if (this.state.items.length <= limit) return;
 
-    const favorites = this.state.items.filter((item) => item.favorite);
-    const others = this.state.items.filter((item) => !item.favorite);
-    const remainingSlots = Math.max(0, limit - favorites.length);
-    this.state.items = [...favorites, ...others.slice(0, remainingSlots)]
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, limit);
+    const pinned = this.state.items.filter((item) => item.pinned);
+    const favorites = this.state.items.filter((item) => !item.pinned && item.favorite);
+    const others = this.state.items.filter((item) => !item.pinned && !item.favorite);
+    this.state.items = [...pinned, ...favorites, ...others]
+      .slice(0, limit)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 }
 
@@ -230,5 +253,6 @@ module.exports = {
   DEFAULT_SHORTCUT,
   HistoryStore,
   clampLimit,
+  clampTheme,
   detectTag,
 };

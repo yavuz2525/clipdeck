@@ -8,10 +8,14 @@ const {
   Menu,
   nativeImage,
   Notification,
+  safeStorage,
   Tray,
 } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const { DEFAULT_SHORTCUT, HistoryStore } = require('./src/history-store');
+const { SnippetStore, renderTemplate } = require('./src/snippet-store');
+const { generatePassword } = require('./src/password-generator');
+const { VaultStore } = require('./src/vault-store');
 
 const TRAY_ICON_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA9klEQVR4nGNgGOmAEZ+kfH7of2pZ9HDiaqx2YRWkpsWEHMJET8uxmc+ITxIXuBT5Eqec3nJxohwCCwmMEKDEcmLk0QHcAbQOenQAs4+FGMUPJqyCsz+dtCdJvUJBGF61BKMA2TByACH9JKcBagOSHcBnfpAieXRAVBqg1BJ8YMCjgKQQIJSiyUmwRIcAIcuJVUO2A4jxHTkhQFIUUFomUOwAYoOYFIdSNQ2Qo5aqaYActcMjDVDiMKqkAXLyP8kOwOdLSkIA3ibE1yKixAJ8ofNw4mpGshql1ABkN0qpDVAcgKv3Qm2AbA9GCNDaEejmD3jfcMABANvWX/lLOs+WAAAAAElFTkSuQmCC';
 const WINDOWS_HIDDEN_START_ARG = '--hidden-start';
@@ -21,6 +25,8 @@ let mainWindow = null;
 let quickWindow = null;
 let tray = null;
 let store = null;
+let snippetStore = null;
+let vaultStore = null;
 let monitorTimer = null;
 let updateTimer = null;
 let lastObservedText = '';
@@ -89,6 +95,13 @@ function pollClipboard() {
   } catch (error) {
     console.error('Clipboard read failed:', error);
   }
+}
+
+function copyWithoutHistory(text) {
+  if (typeof text !== 'string') return { ok: false };
+  clipboard.writeText(text);
+  lastObservedText = text;
+  return { ok: true };
 }
 
 function showWindow() {
@@ -192,7 +205,6 @@ function refreshTrayMenu() {
       label: paused ? 'Pano Takibini Sürdür' : 'Pano Takibini Duraklat',
       click: () => {
         if (!store) return;
-
         const value = store.setPaused(!paused);
         if (!value) lastObservedText = clipboard.readText();
         broadcastState();
@@ -242,10 +254,10 @@ function protectWebContents(window) {
 
 function createWindow({ showOnReady = true } = {}) {
   mainWindow = new BrowserWindow({
-    width: 460,
-    height: 720,
-    minWidth: 360,
-    minHeight: 520,
+    width: 560,
+    height: 760,
+    minWidth: 420,
+    minHeight: 560,
     title: 'ClipDeck',
     autoHideMenuBar: true,
     backgroundColor: '#0f1115',
@@ -263,11 +275,9 @@ function createWindow({ showOnReady = true } = {}) {
 
   mainWindow.on('close', (event) => {
     if (isQuitting) return;
-
     event.preventDefault();
     mainWindow.setSkipTaskbar(true);
     mainWindow.hide();
-
     if (process.platform === 'darwin' && app.dock) app.dock.hide();
   });
 
@@ -331,6 +341,45 @@ function configureWindowsStartup() {
   }
 }
 
+async function safeStorageAvailable() {
+  if (typeof safeStorage.isAsyncEncryptionAvailable === 'function') {
+    return safeStorage.isAsyncEncryptionAvailable();
+  }
+  return safeStorage.isEncryptionAvailable();
+}
+
+async function encryptSecret(plainText) {
+  if (!(await safeStorageAvailable())) throw new Error('Secure OS storage is unavailable.');
+  if (typeof safeStorage.encryptStringAsync === 'function') {
+    return safeStorage.encryptStringAsync(plainText);
+  }
+  return safeStorage.encryptString(plainText);
+}
+
+async function decryptSecret(buffer) {
+  if (!(await safeStorageAvailable())) throw new Error('Secure OS storage is unavailable.');
+  if (typeof safeStorage.decryptStringAsync === 'function') {
+    const response = await safeStorage.decryptStringAsync(buffer);
+    return response.result;
+  }
+  return safeStorage.decryptString(buffer);
+}
+
+async function getVaultStatus() {
+  const available = await safeStorageAvailable().catch(() => false);
+  let backend = 'OS protected storage';
+  let secure = available;
+
+  if (process.platform === 'win32') backend = 'Windows DPAPI';
+  if (process.platform === 'darwin') backend = 'macOS Keychain';
+  if (process.platform === 'linux' && typeof safeStorage.getSelectedStorageBackend === 'function') {
+    backend = safeStorage.getSelectedStorageBackend();
+    if (backend === 'basic_text') secure = false;
+  }
+
+  return { available, secure, backend };
+}
+
 function checkForUpdates() {
   if (!updateState.supported) {
     return Promise.resolve({ ok: false, error: 'Güncellemeler yalnızca kurulu Windows sürümünde kullanılabilir.' });
@@ -374,21 +423,11 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-available', (info) => {
-    setUpdateState({
-      status: 'downloading',
-      availableVersion: info.version,
-      progress: 0,
-      error: null,
-    });
+    setUpdateState({ status: 'downloading', availableVersion: info.version, progress: 0, error: null });
   });
 
   autoUpdater.on('update-not-available', () => {
-    setUpdateState({
-      status: 'up-to-date',
-      availableVersion: null,
-      progress: null,
-      error: null,
-    });
+    setUpdateState({ status: 'up-to-date', availableVersion: null, progress: null, error: null });
   });
 
   autoUpdater.on('download-progress', (progress) => {
@@ -399,12 +438,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    setUpdateState({
-      status: 'ready',
-      availableVersion: info.version,
-      progress: 100,
-      error: null,
-    });
+    setUpdateState({ status: 'ready', availableVersion: info.version, progress: 100, error: null });
 
     if (Notification.isSupported()) {
       const notification = new Notification({
@@ -418,10 +452,7 @@ function setupAutoUpdater() {
 
   autoUpdater.on('error', (error) => {
     console.error('Auto update failed:', error);
-    setUpdateState({
-      status: 'error',
-      error: error.message || 'Güncelleme işlemi başarısız.',
-    });
+    setUpdateState({ status: 'error', error: error.message || 'Güncelleme işlemi başarısız.' });
   });
 
   setTimeout(checkForUpdates, 12_000);
@@ -448,6 +479,12 @@ function registerIpc() {
     return { ok: Boolean(item) };
   });
 
+  ipcMain.handle('history:pin', (_event, id) => {
+    const item = store.togglePin(id);
+    broadcastState();
+    return { ok: Boolean(item), item };
+  });
+
   ipcMain.handle('history:remove', (_event, id) => {
     const removed = store.remove(id);
     broadcastState();
@@ -455,7 +492,7 @@ function registerIpc() {
   });
 
   ipcMain.handle('history:clear', () => {
-    store.clear({ keepFavorites: true });
+    store.clear({ keepFavorites: true, keepPinned: true });
     broadcastState();
     return { ok: true };
   });
@@ -474,7 +511,55 @@ function registerIpc() {
     return { ok: true, limit: value };
   });
 
+  ipcMain.handle('settings:theme', (_event, theme) => {
+    const value = store.setTheme(theme);
+    broadcastState();
+    return { ok: true, theme: value };
+  });
+
   ipcMain.handle('settings:shortcut', (_event, shortcut) => registerQuickShortcut(shortcut, { persist: true }));
+
+  ipcMain.handle('snippets:list', () => snippetStore.list());
+  ipcMain.handle('snippets:save', (_event, input) => {
+    const item = snippetStore.save(input);
+    return item ? { ok: true, item } : { ok: false, error: 'Name and template are required.' };
+  });
+  ipcMain.handle('snippets:remove', (_event, id) => ({ ok: snippetStore.remove(id) }));
+  ipcMain.handle('snippets:copy', (_event, id, values) => {
+    const item = snippetStore.get(id);
+    if (!item) return { ok: false, error: 'Snippet not found.' };
+    const text = renderTemplate(item.template, values || {});
+    return { ...copyWithoutHistory(text), text };
+  });
+
+  ipcMain.handle('password:generate', (_event, options) => ({
+    ok: true,
+    password: generatePassword(options || {}),
+  }));
+
+  ipcMain.handle('vault:status', () => getVaultStatus());
+  ipcMain.handle('vault:list', async () => {
+    try {
+      const status = await getVaultStatus();
+      if (!status.available) return { ok: false, items: [], status, error: 'Secure OS storage is unavailable.' };
+      return { ok: true, items: await vaultStore.list(), status };
+    } catch (error) {
+      return { ok: false, items: [], error: error.message || 'Vault could not be opened.' };
+    }
+  });
+  ipcMain.handle('vault:save', async (_event, input) => {
+    try {
+      const status = await getVaultStatus();
+      if (!status.available) return { ok: false, error: 'Secure OS storage is unavailable.' };
+      const item = await vaultStore.save(input);
+      return item ? { ok: true, item } : { ok: false, error: 'Title and password are required.' };
+    } catch (error) {
+      return { ok: false, error: error.message || 'Password could not be stored.' };
+    }
+  });
+  ipcMain.handle('vault:remove', (_event, id) => ({ ok: vaultStore.remove(id) }));
+  ipcMain.handle('vault:copy', (_event, text) => copyWithoutHistory(String(text || '')));
+
   ipcMain.handle('updates:get', () => getUpdateState());
   ipcMain.handle('updates:check', () => checkForUpdates());
   ipcMain.handle('updates:install', () => installDownloadedUpdate());
@@ -487,7 +572,13 @@ if (hasSingleInstanceLock) {
   });
 
   app.whenReady().then(() => {
-    store = new HistoryStore(path.join(app.getPath('userData'), 'clipdeck.json'));
+    const userDataPath = app.getPath('userData');
+    store = new HistoryStore(path.join(userDataPath, 'clipdeck.json'));
+    snippetStore = new SnippetStore(path.join(userDataPath, 'clipdeck-snippets.json'));
+    vaultStore = new VaultStore(path.join(userDataPath, 'clipdeck-vault.json'), {
+      encrypt: encryptSecret,
+      decrypt: decryptSecret,
+    });
     lastObservedText = clipboard.readText();
 
     configureWindowsStartup();
@@ -507,7 +598,6 @@ if (hasSingleInstanceLock) {
 
     setupAutoUpdater();
     monitorTimer = setInterval(pollClipboard, 700);
-
     app.on('activate', showWindow);
   });
 }
