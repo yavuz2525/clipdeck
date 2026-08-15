@@ -2,9 +2,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
+const DEFAULT_SHORTCUT = 'CommandOrControl+Shift+V';
+
 const DEFAULT_SETTINGS = Object.freeze({
   limit: 100,
   paused: false,
+  shortcut: DEFAULT_SHORTCUT,
 });
 
 function clampLimit(value) {
@@ -100,6 +103,9 @@ class HistoryStore {
         settings: {
           limit: clampLimit(settings.limit),
           paused: Boolean(settings.paused),
+          shortcut: typeof settings.shortcut === 'string' && settings.shortcut.trim()
+            ? settings.shortcut.trim()
+            : DEFAULT_SHORTCUT,
         },
       };
       this.enforceLimit();
@@ -200,6 +206,13 @@ class HistoryStore {
     return this.state.settings.limit;
   }
 
+  setShortcut(shortcut) {
+    if (typeof shortcut !== 'string' || !shortcut.trim()) return this.state.settings.shortcut;
+    this.state.settings.shortcut = shortcut.trim();
+    this.persist();
+    return this.state.settings.shortcut;
+  }
+
   enforceLimit() {
     const limit = this.state.settings.limit;
     if (this.state.items.length <= limit) return;
@@ -214,6 +227,7 @@ class HistoryStore {
 }
 
 module.exports = {
+  DEFAULT_SHORTCUT,
   HistoryStore,
   clampLimit,
   detectTag,
