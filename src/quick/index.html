@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  />
+  <title>ClipDeck Quick Panel</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="quick-shell">
+    <header class="quick-header">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">CD</span>
+        <div>
+          <strong>Quick Paste</strong>
+          <span>Search clipboard history</span>
+        </div>
+      </div>
+      <span class="shortcut">Esc to close</span>
+    </header>
+
+    <label class="quick-search" for="quickSearch">
+      <span aria-hidden="true">⌕</span>
+      <input id="quickSearch" type="search" placeholder="Type to find a clip…" autocomplete="off" />
+    </label>
+
+    <section id="quickList" class="quick-list" aria-label="Quick clipboard results"></section>
+
+    <section id="quickEmpty" class="quick-empty hidden">
+      <strong>No matching clips</strong>
+      <span>Try another search.</span>
+    </section>
+
+    <footer>
+      <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+      <span><kbd>Enter</kbd> copy</span>
+      <span>Auto tags included in search</span>
+    </footer>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

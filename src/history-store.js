@@ -13,6 +13,59 @@ function clampLimit(value) {
   return numeric;
 }
 
+function looksLikeJson(value) {
+  if (!/^[\[{]/.test(value)) return false;
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed !== null && typeof parsed === 'object';
+  } catch {
+    return false;
+  }
+}
+
+function looksLikeIp(value) {
+  if (!/^(?:\d{1,3}\.){3}\d{1,3}$/.test(value)) return false;
+  return value.split('.').every((part) => Number(part) >= 0 && Number(part) <= 255);
+}
+
+function looksLikePhone(value) {
+  if (!/^[+()\d\s.-]+$/.test(value)) return false;
+  const digits = value.replace(/\D/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function detectTag(text) {
+  if (typeof text !== 'string' || !text.trim()) return 'Text';
+  const value = text.trim();
+
+  if (/^https?:\/\/\S+$/i.test(value)) return 'URL';
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'Email';
+  if (/^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value)) return 'Color';
+  if (looksLikeIp(value)) return 'IP';
+  if (/^[a-zA-Z]:\\(?:[^\\/:*?"<>|\r\n]+\\?)+$/.test(value) || /^\/(?:[^/\0]+\/?)+$/.test(value)) {
+    return 'Path';
+  }
+  if (looksLikeJson(value)) return 'JSON';
+  if (/^(?:SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH|GRANT|REVOKE)\b/i.test(value)) {
+    return 'SQL';
+  }
+  if (/^(?:\$ ?)?(?:npm|npx|pnpm|yarn|git|docker|kubectl|curl|wget|ssh|scp|powershell|pwsh|cmd|node|python|python3|pip|pip3|cargo|go)\b/i.test(value)) {
+    return 'Command';
+  }
+  if (looksLikePhone(value)) return 'Phone';
+  if (
+    /```[\s\S]*```/.test(value) ||
+    /(?:^|\n)\s*(?:const|let|var|function|class|interface|type|enum|import|export|def|async\s+def|from)\b/m.test(value) ||
+    /=>\s*[{(]?/.test(value) ||
+    /<\/?[a-z][^>]*>/i.test(value)
+  ) {
+    return 'Code';
+  }
+
+  return 'Text';
+}
+
 class HistoryStore {
   constructor(filePath = null) {
     this.filePath = filePath;
@@ -39,6 +92,7 @@ class HistoryStore {
           .map((item) => ({
             id: typeof item.id === 'string' ? item.id : crypto.randomUUID(),
             text: item.text,
+            tag: detectTag(item.text),
             createdAt: Number(item.createdAt) || Date.now(),
             lastCopiedAt: Number(item.lastCopiedAt) || Number(item.createdAt) || Date.now(),
             favorite: Boolean(item.favorite),
@@ -82,10 +136,12 @@ class HistoryStore {
       item = this.state.items.splice(existingIndex, 1)[0];
       item.createdAt = now;
       item.lastCopiedAt = now;
+      item.tag = detectTag(text);
     } else {
       item = {
         id: crypto.randomUUID(),
         text,
+        tag: detectTag(text),
         createdAt: now,
         lastCopiedAt: now,
         favorite: false,
@@ -152,11 +208,13 @@ class HistoryStore {
     const others = this.state.items.filter((item) => !item.favorite);
     const remainingSlots = Math.max(0, limit - favorites.length);
     this.state.items = [...favorites, ...others.slice(0, remainingSlots)]
-      .sort((a, b) => b.createdAt - a.createdAt);
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, limit);
   }
 }
 
 module.exports = {
   HistoryStore,
   clampLimit,
+  detectTag,
 };

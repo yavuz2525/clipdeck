@@ -28,10 +28,12 @@
     <section class="toolbar" aria-label="Clipboard controls">
       <label class="search-wrap" for="searchInput">
         <span aria-hidden="true">⌕</span>
-        <input id="searchInput" type="search" placeholder="Search copied text…" autocomplete="off" />
+        <input id="searchInput" type="search" placeholder="Search text or tags…" autocomplete="off" />
       </label>
       <button id="favoritesButton" class="filter-button" type="button" aria-pressed="false">★ Favorites</button>
     </section>
+
+    <section id="tagFilters" class="tag-filters" aria-label="Automatic tag filters"></section>
 
     <section class="summary-row" aria-live="polite">
       <span id="countLabel">0 clips</span>
@@ -56,10 +58,10 @@
       <p>Copy some text and it will appear here automatically.</p>
     </section>
 
-    <section id="clipsList" class="clips-list" aria-label="Clipboard history"></section>
+    <section id="clipsList" class="clips-list" aria-label="Clipboard history timeline"></section>
 
     <footer class="footer">
-      <span>Shortcut: <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></span>
+      <span>Quick panel: <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></span>
       <span>Local only</span>
     </footer>
   </main>
@@ -67,7 +69,10 @@
   <template id="clipTemplate">
     <article class="clip-card">
       <div class="clip-meta">
-        <span class="clip-time"></span>
+        <div class="clip-meta-left">
+          <button class="clip-tag" type="button" title="Filter by this tag"></button>
+          <span class="clip-time"></span>
+        </div>
         <span class="clip-size"></span>
       </div>
       <button class="clip-text" type="button" title="Copy to clipboard"></button>

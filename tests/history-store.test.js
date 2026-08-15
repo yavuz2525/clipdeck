@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { HistoryStore, clampLimit } = require('../src/history-store');
+const { HistoryStore, clampLimit, detectTag } = require('../src/history-store');
 
 test('rejects empty clipboard values', () => {
   const store = new HistoryStore();
@@ -51,4 +51,24 @@ test('favorite entries are preserved when enforcing the limit', () => {
   const items = store.snapshot().items;
   assert.equal(items.length, 25);
   assert.ok(items.some((item) => item.text === 'favorite'));
+});
+
+test('automatically tags common clipboard content', () => {
+  assert.equal(detectTag('https://example.com/docs'), 'URL');
+  assert.equal(detectTag('hello@example.com'), 'Email');
+  assert.equal(detectTag('{"name":"ClipDeck"}'), 'JSON');
+  assert.equal(detectTag('SELECT * FROM clips;'), 'SQL');
+  assert.equal(detectTag('git status'), 'Command');
+  assert.equal(detectTag('const answer = 42;'), 'Code');
+  assert.equal(detectTag('#17624F'), 'Color');
+  assert.equal(detectTag('192.168.1.1'), 'IP');
+  assert.equal(detectTag('C:\\Users\\Yavuz\\Desktop\\clip.txt'), 'Path');
+  assert.equal(detectTag('Just a normal sentence.'), 'Text');
+});
+
+test('new history items include their detected tag', () => {
+  const store = new HistoryStore();
+  const item = store.add('npm run build', 100);
+  assert.equal(item.tag, 'Command');
+  assert.equal(store.snapshot().items[0].tag, 'Command');
 });
