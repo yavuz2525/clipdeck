@@ -1,0 +1,29 @@
+{
+  "name": "clipdeck",
+  "version": "0.1.0",
+  "description": "A fast, private, open-source clipboard history manager for Windows, macOS and Linux.",
+  "main": "main.js",
+  "author": "Yavuz Cingöz",
+  "license": "MIT",
+  "private": false,
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main.js && node --check preload.js && node --check src/history-store.js && node --check src/renderer/app.js",
+    "test": "node --test",
+    "package": "electron-packager . ClipDeck --overwrite --out=dist --ignore='^/dist($|/)' --prune=true"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "keywords": [
+    "clipboard",
+    "clipboard-manager",
+    "electron",
+    "productivity",
+    "open-source"
+  ],
+  "devDependencies": {
+    "@electron/packager": "20.0.4",
+    "electron": "43.2.0"
+  }
+}

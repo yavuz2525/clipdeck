@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  />
+  <title>ClipDeck</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div>
+        <div class="brand-row">
+          <span class="logo" aria-hidden="true">CD</span>
+          <h1>ClipDeck</h1>
+        </div>
+        <p>Private clipboard history, kept on this device.</p>
+      </div>
+      <button id="pauseButton" class="icon-button" type="button" aria-label="Pause clipboard monitoring" title="Pause monitoring">
+        <span id="pauseIcon" aria-hidden="true">Ⅱ</span>
+      </button>
+    </header>
+
+    <section class="toolbar" aria-label="Clipboard controls">
+      <label class="search-wrap" for="searchInput">
+        <span aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" placeholder="Search copied text…" autocomplete="off" />
+      </label>
+      <button id="favoritesButton" class="filter-button" type="button" aria-pressed="false">★ Favorites</button>
+    </section>
+
+    <section class="summary-row" aria-live="polite">
+      <span id="countLabel">0 clips</span>
+      <div class="summary-actions">
+        <label for="limitSelect">Keep</label>
+        <select id="limitSelect" aria-label="Clipboard history limit">
+          <option value="25">25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+          <option value="250">250</option>
+        </select>
+        <button id="clearButton" class="text-button danger" type="button">Clear</button>
+      </div>
+    </section>
+
+    <section id="statusBanner" class="status-banner hidden" aria-live="polite"></section>
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <section id="emptyState" class="empty-state hidden">
+      <div class="empty-icon" aria-hidden="true">⌘V</div>
+      <h2>No clips yet</h2>
+      <p>Copy some text and it will appear here automatically.</p>
+    </section>
+
+    <section id="clipsList" class="clips-list" aria-label="Clipboard history"></section>
+
+    <footer class="footer">
+      <span>Shortcut: <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></span>
+      <span>Local only</span>
+    </footer>
+  </main>
+
+  <template id="clipTemplate">
+    <article class="clip-card">
+      <div class="clip-meta">
+        <span class="clip-time"></span>
+        <span class="clip-size"></span>
+      </div>
+      <button class="clip-text" type="button" title="Copy to clipboard"></button>
+      <div class="clip-actions">
+        <button class="action copy-action" type="button">Copy</button>
+        <button class="action favorite-action" type="button" aria-label="Toggle favorite">☆</button>
+        <button class="action delete-action danger" type="button" aria-label="Delete clip">Delete</button>
+      </div>
+    </article>
+  </template>
+
+  <script src="./app.js"></script>
+</body>
+</html>
