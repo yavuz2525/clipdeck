@@ -20,9 +20,12 @@
         </div>
         <p>Private clipboard history, kept on this device.</p>
       </div>
-      <button id="pauseButton" class="icon-button" type="button" aria-label="Pause clipboard monitoring" title="Pause monitoring">
-        <span id="pauseIcon" aria-hidden="true">Ⅱ</span>
-      </button>
+      <div class="topbar-actions">
+        <button id="settingsButton" class="icon-button" type="button" aria-label="Open settings" title="Settings">⚙</button>
+        <button id="pauseButton" class="icon-button" type="button" aria-label="Pause clipboard monitoring" title="Pause monitoring">
+          <span id="pauseIcon" aria-hidden="true">Ⅱ</span>
+        </button>
+      </div>
     </header>
 
     <section class="toolbar" aria-label="Clipboard controls">
@@ -61,10 +64,46 @@
     <section id="clipsList" class="clips-list" aria-label="Clipboard history timeline"></section>
 
     <footer class="footer">
-      <span>Quick panel: <kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Shift</kbd> + <kbd>V</kbd></span>
+      <span>Quick panel: <kbd id="footerShortcut">Ctrl/⌘ + Shift + V</kbd></span>
       <span>Local only</span>
     </footer>
   </main>
+
+  <div id="settingsOverlay" class="settings-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+    <section class="settings-panel">
+      <header class="settings-header">
+        <div>
+          <h2 id="settingsTitle">Settings</h2>
+          <p>ClipDeck preferences are stored only on this device.</p>
+        </div>
+        <button id="settingsCloseButton" class="icon-button" type="button" aria-label="Close settings">×</button>
+      </header>
+
+      <div class="setting-card">
+        <div class="setting-copy">
+          <h3>Quick panel shortcut</h3>
+          <p>Click the shortcut, then press the key combination you want to use globally.</p>
+        </div>
+        <button id="shortcutCapture" class="shortcut-capture" type="button">Ctrl/⌘ + Shift + V</button>
+        <div id="shortcutError" class="setting-error hidden" role="alert"></div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-copy">
+          <h3>Automatic updates</h3>
+          <p id="updateVersion">Current version</p>
+          <p id="updateStatus" class="update-status">Checking update support…</p>
+        </div>
+        <div id="updateProgressWrap" class="update-progress-wrap hidden" aria-hidden="true">
+          <div id="updateProgress" class="update-progress"></div>
+        </div>
+        <div class="setting-actions">
+          <button id="checkUpdatesButton" class="text-button" type="button">Check for updates</button>
+          <button id="installUpdateButton" class="text-button primary hidden" type="button">Restart and update</button>
+        </div>
+      </div>
+    </section>
+  </div>
 
   <template id="clipTemplate">
     <article class="clip-card">
