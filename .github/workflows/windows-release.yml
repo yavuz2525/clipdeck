@@ -1,0 +1,58 @@
+name: Windows Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release
+  cancel-in-progress: true
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Syntax check
+        run: npm run check
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build Windows installer
+        run: npm run dist:win
+
+      - name: Publish GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = node -p "require('./package.json').version"
+          $tag = "v$version"
+          $installer = "dist/ClipDeck-Setup-$version.exe"
+
+          if (-not (Test-Path $installer)) {
+            throw "Installer not found: $installer"
+          }
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --target $env:GITHUB_SHA --title "ClipDeck $tag" --notes "Windows installer for ClipDeck $tag. Download ClipDeck-Setup-$version.exe and run it normally; Node.js and CMD are not required after installation."
+          }
+
+          gh release upload $tag $installer --clobber
