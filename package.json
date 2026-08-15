@@ -32,12 +32,14 @@
     "productName": "ClipDeck",
     "asar": true,
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "main.js",
       "preload.js",
       "src/**/*",
+      "build/icon.png",
       "package.json"
     ],
     "win": {

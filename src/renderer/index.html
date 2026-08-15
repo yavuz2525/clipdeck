@@ -9,13 +9,14 @@
   />
   <title>ClipDeck</title>
   <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./enhancements.css" />
 </head>
 <body>
   <main class="shell">
     <header class="topbar">
       <div>
         <div class="brand-row">
-          <span class="logo" aria-hidden="true">CD</span>
+          <img class="brand-logo" src="../../build/icon.png" alt="" aria-hidden="true" />
           <h1>ClipDeck</h1>
         </div>
         <p>Clipboard history, reusable snippets and a local secure vault.</p>
@@ -75,9 +76,14 @@
       <div class="section-head">
         <div>
           <h2>Snippets</h2>
-          <p>Save reusable text and use <code>{{variable}}</code> placeholders.</p>
+          <p>Save reusable text and use <code>{{variable}}</code> placeholders. The snippet name is also its inline trigger.</p>
         </div>
         <button id="newSnippetButton" class="text-button primary" type="button">+ New snippet</button>
+      </div>
+      <div class="snippet-expander-tip">
+        <strong>Inline expansion</strong>
+        <span>Example: create a snippet named <code>mail</code>, type <code>mail</code> anywhere, then press <kbd>Ctrl + Alt + E</kbd>.</span>
+        <small>Windows: ClipDeck replaces the word immediately before the caret with the matching snippet.</small>
       </div>
       <label class="search-wrap standalone-search" for="snippetSearch">
         <span aria-hidden="true">⌕</span>
@@ -141,6 +147,7 @@
 
     <footer class="footer">
       <span>Quick panel: <kbd id="footerShortcut">Ctrl/⌘ + Shift + V</kbd></span>
+      <span>Expand snippet: <kbd>Ctrl + Alt + E</kbd></span>
       <span>Local first</span>
     </footer>
   </main>
@@ -178,6 +185,13 @@
 
       <div class="setting-card">
         <div class="setting-copy">
+          <h3>Snippet expansion</h3>
+          <p>On Windows, type a snippet name and press <kbd>Ctrl + Alt + E</kbd> to expand it inline.</p>
+        </div>
+      </div>
+
+      <div class="setting-card">
+        <div class="setting-copy">
           <h3>Automatic updates</h3>
           <p id="updateVersion">Current version</p>
           <p id="updateStatus" class="update-status">Checking update support…</p>
@@ -198,13 +212,13 @@
       <header class="modal-header">
         <div>
           <h2 id="snippetEditorTitle">New snippet</h2>
-          <p>Use placeholders like <code>{{name}}</code> or <code>{{date}}</code>.</p>
+          <p>The snippet name doubles as its inline trigger. Use placeholders like <code>{{name}}</code> when needed.</p>
         </div>
         <button id="snippetEditorClose" class="icon-button" type="button" aria-label="Close snippet editor">×</button>
       </header>
       <input id="snippetId" type="hidden" />
-      <label class="field">Name<input id="snippetName" type="text" maxlength="80" placeholder="Support reply" /></label>
-      <label class="field">Template<textarea id="snippetTemplate" rows="9" placeholder="Hello {{name}}, ..."></textarea></label>
+      <label class="field">Name / trigger<input id="snippetName" type="text" maxlength="80" placeholder="mail" /></label>
+      <label class="field">Template<textarea id="snippetTemplate" rows="9" placeholder="you@example.com"></textarea></label>
       <div class="modal-actions">
         <button id="snippetCancelButton" class="text-button" type="button">Cancel</button>
         <button id="snippetSaveButton" class="text-button primary" type="button">Save snippet</button>
