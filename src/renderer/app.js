@@ -11,10 +11,34 @@ const emptyState = document.querySelector('#emptyState');
 const clipsList = document.querySelector('#clipsList');
 const clipTemplate = document.querySelector('#clipTemplate');
 const tagFilters = document.querySelector('#tagFilters');
+const settingsButton = document.querySelector('#settingsButton');
+const settingsOverlay = document.querySelector('#settingsOverlay');
+const settingsCloseButton = document.querySelector('#settingsCloseButton');
+const shortcutCapture = document.querySelector('#shortcutCapture');
+const shortcutError = document.querySelector('#shortcutError');
+const footerShortcut = document.querySelector('#footerShortcut');
+const updateVersion = document.querySelector('#updateVersion');
+const updateStatus = document.querySelector('#updateStatus');
+const updateProgressWrap = document.querySelector('#updateProgressWrap');
+const updateProgress = document.querySelector('#updateProgress');
+const checkUpdatesButton = document.querySelector('#checkUpdatesButton');
+const installUpdateButton = document.querySelector('#installUpdateButton');
 
-let state = { items: [], settings: { limit: 100, paused: false } };
+let state = {
+  items: [],
+  settings: { limit: 100, paused: false, shortcut: 'CommandOrControl+Shift+V' },
+};
+let updateState = {
+  supported: false,
+  status: 'disabled',
+  currentVersion: null,
+  availableVersion: null,
+  progress: null,
+  error: null,
+};
 let favoritesOnly = false;
 let selectedTag = null;
+let capturingShortcut = false;
 
 function relativeTime(timestamp) {
   const diff = Math.max(0, Date.now() - timestamp);
@@ -63,6 +87,44 @@ function timelineBucket(timestamp) {
   return 'Older';
 }
 
+function prettyShortcut(shortcut) {
+  if (!shortcut) return 'Not set';
+  return shortcut
+    .replaceAll('CommandOrControl', 'Ctrl/⌘')
+    .replaceAll('Control', 'Ctrl')
+    .replaceAll('Command', '⌘')
+    .replaceAll('+', ' + ');
+}
+
+function shortcutFromKeyboardEvent(event) {
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) return null;
+
+  const parts = [];
+  if (event.ctrlKey) parts.push('CommandOrControl');
+  if (event.metaKey) parts.push('Command');
+  if (event.altKey) parts.push('Alt');
+  if (event.shiftKey) parts.push('Shift');
+
+  let key = event.key;
+  const keyMap = {
+    ' ': 'Space',
+    ArrowUp: 'Up',
+    ArrowDown: 'Down',
+    ArrowLeft: 'Left',
+    ArrowRight: 'Right',
+    Escape: 'Esc',
+  };
+
+  key = keyMap[key] || key;
+  if (/^[a-z0-9]$/i.test(key)) key = key.toUpperCase();
+
+  const isFunctionKey = /^F(?:[1-9]|1\d|2[0-4])$/.test(key);
+  if (parts.length === 0 && !isFunctionKey) return null;
+
+  parts.push(key);
+  return parts.join('+');
+}
+
 function filteredItems() {
   const query = searchInput.value.trim().toLocaleLowerCase();
 
@@ -80,7 +142,7 @@ function flash(message) {
   toast.textContent = message;
   toast.classList.remove('hidden');
   window.clearTimeout(flash.timer);
-  flash.timer = window.setTimeout(() => toast.classList.add('hidden'), 1400);
+  flash.timer = window.setTimeout(() => toast.classList.add('hidden'), 1600);
 }
 
 function renderTagFilters() {
@@ -177,6 +239,43 @@ function renderTimeline(items) {
   }
 }
 
+function renderUpdateState() {
+  const version = updateState.currentVersion || '—';
+  updateVersion.textContent = `Current version: ${version}`;
+
+  let message = 'Automatic updates are enabled.';
+  if (!updateState.supported) message = 'Automatic updates are available in the installed Windows build.';
+  if (updateState.status === 'checking') message = 'Checking for updates…';
+  if (updateState.status === 'up-to-date') message = 'You are up to date.';
+  if (updateState.status === 'downloading') {
+    const suffix = Number.isFinite(updateState.progress) ? ` ${updateState.progress}%` : '';
+    message = `Downloading ClipDeck ${updateState.availableVersion || ''}${suffix}…`.replace('  ', ' ');
+  }
+  if (updateState.status === 'ready') {
+    message = `ClipDeck ${updateState.availableVersion} is downloaded and ready to install.`;
+  }
+  if (updateState.status === 'error') message = updateState.error || 'Update check failed.';
+
+  updateStatus.textContent = message;
+  updateStatus.classList.toggle('error', updateState.status === 'error');
+
+  const showProgress = updateState.status === 'downloading';
+  updateProgressWrap.classList.toggle('hidden', !showProgress);
+  updateProgress.style.width = `${Number.isFinite(updateState.progress) ? updateState.progress : 0}%`;
+
+  checkUpdatesButton.disabled = !updateState.supported
+    || updateState.status === 'checking'
+    || updateState.status === 'downloading';
+  installUpdateButton.classList.toggle('hidden', updateState.status !== 'ready');
+}
+
+function renderSettings() {
+  const shortcut = state.settings.shortcut || 'CommandOrControl+Shift+V';
+  if (!capturingShortcut) shortcutCapture.textContent = prettyShortcut(shortcut);
+  footerShortcut.textContent = prettyShortcut(shortcut);
+  renderUpdateState();
+}
+
 function render() {
   const items = filteredItems();
   clipsList.replaceChildren();
@@ -189,6 +288,7 @@ function render() {
   pauseIcon.textContent = state.settings.paused ? '▶' : 'Ⅱ';
 
   renderTagFilters();
+  renderSettings();
 
   if (state.settings.paused) {
     statusBanner.textContent = 'Clipboard monitoring is paused. New copies will not be saved.';
@@ -207,6 +307,20 @@ function render() {
   }
 
   renderTimeline(items);
+}
+
+function openSettings() {
+  settingsOverlay.classList.remove('hidden');
+  renderSettings();
+  settingsCloseButton.focus();
+}
+
+function closeSettings() {
+  capturingShortcut = false;
+  shortcutCapture.classList.remove('recording');
+  shortcutError.classList.add('hidden');
+  settingsOverlay.classList.add('hidden');
+  settingsButton.focus();
 }
 
 searchInput.addEventListener('input', render);
@@ -232,13 +346,83 @@ clearButton.addEventListener('click', async () => {
   }
 });
 
+settingsButton.addEventListener('click', openSettings);
+settingsCloseButton.addEventListener('click', closeSettings);
+settingsOverlay.addEventListener('click', (event) => {
+  if (event.target === settingsOverlay) closeSettings();
+});
+
+shortcutCapture.addEventListener('click', () => {
+  capturingShortcut = true;
+  shortcutCapture.classList.add('recording');
+  shortcutCapture.textContent = 'Press a shortcut…';
+  shortcutError.classList.add('hidden');
+  shortcutCapture.focus();
+});
+
+document.addEventListener('keydown', async (event) => {
+  if (!capturingShortcut) {
+    if (event.key === 'Escape' && !settingsOverlay.classList.contains('hidden')) closeSettings();
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  if (event.key === 'Escape') {
+    capturingShortcut = false;
+    shortcutCapture.classList.remove('recording');
+    shortcutCapture.textContent = prettyShortcut(state.settings.shortcut);
+    return;
+  }
+
+  const shortcut = shortcutFromKeyboardEvent(event);
+  if (!shortcut) {
+    shortcutCapture.textContent = 'Use Ctrl/Alt/⌘ + a key';
+    return;
+  }
+
+  capturingShortcut = false;
+  shortcutCapture.classList.remove('recording');
+  shortcutCapture.textContent = prettyShortcut(shortcut);
+
+  const result = await window.clipdeck.setShortcut(shortcut);
+  if (!result.ok) {
+    shortcutError.textContent = result.error || 'That shortcut could not be registered.';
+    shortcutError.classList.remove('hidden');
+    shortcutCapture.textContent = prettyShortcut(result.shortcut || state.settings.shortcut);
+    return;
+  }
+
+  shortcutError.classList.add('hidden');
+  flash(`Shortcut changed to ${prettyShortcut(result.shortcut)}`);
+});
+
+checkUpdatesButton.addEventListener('click', async () => {
+  await window.clipdeck.checkForUpdates();
+});
+
+installUpdateButton.addEventListener('click', async () => {
+  installUpdateButton.disabled = true;
+  await window.clipdeck.installUpdate();
+});
+
 window.clipdeck.onChanged((nextState) => {
   state = nextState;
   render();
 });
 
-window.clipdeck.getState().then((initialState) => {
+window.clipdeck.onUpdateChanged((nextState) => {
+  updateState = nextState;
+  renderUpdateState();
+});
+
+Promise.all([
+  window.clipdeck.getState(),
+  window.clipdeck.getUpdateState(),
+]).then(([initialState, initialUpdateState]) => {
   state = initialState;
+  updateState = initialUpdateState;
   render();
 });
 
