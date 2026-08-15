@@ -7,20 +7,33 @@ const {
   ipcMain,
   Menu,
   nativeImage,
+  Notification,
   Tray,
 } = require('electron');
-const { HistoryStore } = require('./src/history-store');
+const { autoUpdater } = require('electron-updater');
+const { DEFAULT_SHORTCUT, HistoryStore } = require('./src/history-store');
 
 const TRAY_ICON_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA9klEQVR4nGNgGOmAEZ+kfH7of2pZ9HDiaqx2YRWkpsWEHMJET8uxmc+ITxIXuBT5Eqec3nJxohwCCwmMEKDEcmLk0QHcAbQOenQAs4+FGMUPJqyCsz+dtCdJvUJBGF61BKMA2TByACH9JKcBagOSHcBnfpAieXRAVBqg1BJ8YMCjgKQQIJSiyUmwRIcAIcuJVUO2A4jxHTkhQFIUUFomUOwAYoOYFIdSNQ2Qo5aqaYActcMjDVDiMKqkAXLyP8kOwOdLSkIA3ibE1yKixAJ8ofNw4mpGshql1ABkN0qpDVAcgKv3Qm2AbA9GCNDaEejmD3jfcMABANvWX/lLOs+WAAAAAElFTkSuQmCC';
 const WINDOWS_HIDDEN_START_ARG = '--hidden-start';
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 let mainWindow = null;
 let quickWindow = null;
 let tray = null;
 let store = null;
 let monitorTimer = null;
+let updateTimer = null;
 let lastObservedText = '';
+let registeredShortcut = null;
 let isQuitting = false;
+let updateState = {
+  supported: false,
+  status: 'disabled',
+  currentVersion: null,
+  availableVersion: null,
+  progress: null,
+  error: null,
+};
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
 
@@ -32,15 +45,35 @@ function getState() {
   return store.snapshot();
 }
 
+function getUpdateState() {
+  return { ...updateState };
+}
+
 function sendState(window) {
   if (window && !window.isDestroyed()) {
     window.webContents.send('history:changed', getState());
   }
 }
 
+function sendUpdateState(window) {
+  if (window && !window.isDestroyed()) {
+    window.webContents.send('updates:changed', getUpdateState());
+  }
+}
+
 function broadcastState() {
   sendState(mainWindow);
   sendState(quickWindow);
+}
+
+function broadcastUpdateState() {
+  sendUpdateState(mainWindow);
+}
+
+function setUpdateState(patch) {
+  updateState = { ...updateState, ...patch };
+  broadcastUpdateState();
+  refreshTrayMenu();
 }
 
 function pollClipboard() {
@@ -88,20 +121,73 @@ function showQuickPanel() {
   revealQuickWindow();
 }
 
+function tryRegisterQuickShortcut(shortcut) {
+  try {
+    return globalShortcut.register(shortcut, showQuickPanel);
+  } catch (error) {
+    console.error(`Global shortcut registration failed for ${shortcut}:`, error);
+    return false;
+  }
+}
+
+function registerQuickShortcut(shortcut, { persist = false } = {}) {
+  const candidate = typeof shortcut === 'string' && shortcut.trim()
+    ? shortcut.trim()
+    : DEFAULT_SHORTCUT;
+  const previous = registeredShortcut;
+
+  if (previous) globalShortcut.unregister(previous);
+
+  if (tryRegisterQuickShortcut(candidate)) {
+    registeredShortcut = candidate;
+    if (persist) store.setShortcut(candidate);
+    refreshTrayMenu();
+    broadcastState();
+    return { ok: true, shortcut: candidate };
+  }
+
+  if (previous && tryRegisterQuickShortcut(previous)) {
+    registeredShortcut = previous;
+  } else if (candidate !== DEFAULT_SHORTCUT && tryRegisterQuickShortcut(DEFAULT_SHORTCUT)) {
+    registeredShortcut = DEFAULT_SHORTCUT;
+    if (!previous) store.setShortcut(DEFAULT_SHORTCUT);
+  } else {
+    registeredShortcut = null;
+  }
+
+  refreshTrayMenu();
+  broadcastState();
+  return {
+    ok: false,
+    shortcut: registeredShortcut || store.state.settings.shortcut || DEFAULT_SHORTCUT,
+    error: 'Bu kısayol başka bir uygulama tarafından kullanılıyor veya Windows tarafından desteklenmiyor.',
+  };
+}
+
 function refreshTrayMenu() {
   if (!tray || tray.isDestroyed()) return;
 
   const paused = Boolean(store?.state.settings.paused);
-  const contextMenu = Menu.buildFromTemplate([
+  const shortcut = store?.state.settings.shortcut || DEFAULT_SHORTCUT;
+  const template = [
     {
-      label: 'Hızlı Panel',
-      accelerator: 'CommandOrControl+Shift+V',
+      label: `Hızlı Panel (${shortcut})`,
       click: showQuickPanel,
     },
     {
       label: 'ClipDeck’i Aç',
       click: showWindow,
     },
+  ];
+
+  if (updateState.status === 'ready') {
+    template.push({
+      label: `Güncellemeyi Kur (${updateState.availableVersion || 'yeni sürüm'})`,
+      click: installDownloadedUpdate,
+    });
+  }
+
+  template.push(
     {
       label: paused ? 'Pano Takibini Sürdür' : 'Pano Takibini Duraklat',
       click: () => {
@@ -121,9 +207,9 @@ function refreshTrayMenu() {
         app.quit();
       },
     },
-  ]);
+  );
 
-  tray.setContextMenu(contextMenu);
+  tray.setContextMenu(Menu.buildFromTemplate(template));
 }
 
 function createTray() {
@@ -171,6 +257,7 @@ function createWindow({ showOnReady = true } = {}) {
   mainWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
+    sendUpdateState(mainWindow);
     if (showOnReady) mainWindow.show();
   });
 
@@ -244,6 +331,103 @@ function configureWindowsStartup() {
   }
 }
 
+function checkForUpdates() {
+  if (!updateState.supported) {
+    return Promise.resolve({ ok: false, error: 'Güncellemeler yalnızca kurulu Windows sürümünde kullanılabilir.' });
+  }
+
+  setUpdateState({ status: 'checking', error: null, progress: null });
+  return autoUpdater.checkForUpdates()
+    .then(() => ({ ok: true }))
+    .catch((error) => {
+      setUpdateState({ status: 'error', error: error.message || 'Güncelleme kontrolü başarısız.' });
+      return { ok: false, error: updateState.error };
+    });
+}
+
+function installDownloadedUpdate() {
+  if (!updateState.supported || updateState.status !== 'ready') {
+    return { ok: false, error: 'Kurulmaya hazır bir güncelleme yok.' };
+  }
+
+  isQuitting = true;
+  setImmediate(() => autoUpdater.quitAndInstall(false, true));
+  return { ok: true };
+}
+
+function setupAutoUpdater() {
+  updateState = {
+    ...updateState,
+    currentVersion: app.getVersion(),
+    supported: process.platform === 'win32' && app.isPackaged,
+    status: process.platform === 'win32' && app.isPackaged ? 'idle' : 'disabled',
+  };
+  broadcastUpdateState();
+
+  if (!updateState.supported) return;
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('checking-for-update', () => {
+    setUpdateState({ status: 'checking', error: null, progress: null });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    setUpdateState({
+      status: 'downloading',
+      availableVersion: info.version,
+      progress: 0,
+      error: null,
+    });
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    setUpdateState({
+      status: 'up-to-date',
+      availableVersion: null,
+      progress: null,
+      error: null,
+    });
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    setUpdateState({
+      status: 'downloading',
+      progress: Math.max(0, Math.min(100, Math.round(progress.percent || 0))),
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    setUpdateState({
+      status: 'ready',
+      availableVersion: info.version,
+      progress: 100,
+      error: null,
+    });
+
+    if (Notification.isSupported()) {
+      const notification = new Notification({
+        title: `ClipDeck ${info.version} hazır`,
+        body: 'Güncelleme indirildi. Yeniden başlattığında kurulabilir.',
+      });
+      notification.on('click', showWindow);
+      notification.show();
+    }
+  });
+
+  autoUpdater.on('error', (error) => {
+    console.error('Auto update failed:', error);
+    setUpdateState({
+      status: 'error',
+      error: error.message || 'Güncelleme işlemi başarısız.',
+    });
+  });
+
+  setTimeout(checkForUpdates, 12_000);
+  updateTimer = setInterval(checkForUpdates, UPDATE_CHECK_INTERVAL_MS);
+}
+
 function registerIpc() {
   ipcMain.handle('history:get', () => getState());
 
@@ -289,6 +473,11 @@ function registerIpc() {
     broadcastState();
     return { ok: true, limit: value };
   });
+
+  ipcMain.handle('settings:shortcut', (_event, shortcut) => registerQuickShortcut(shortcut, { persist: true }));
+  ipcMain.handle('updates:get', () => getUpdateState());
+  ipcMain.handle('updates:check', () => checkForUpdates());
+  ipcMain.handle('updates:install', () => installDownloadedUpdate());
 }
 
 if (hasSingleInstanceLock) {
@@ -311,11 +500,12 @@ if (hasSingleInstanceLock) {
     createQuickWindow();
     createTray();
 
-    const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+V', showQuickPanel);
-    if (!shortcutRegistered) {
-      console.warn('Global shortcut Ctrl/Cmd+Shift+V could not be registered.');
+    const shortcutResult = registerQuickShortcut(store.state.settings.shortcut);
+    if (!shortcutResult.ok) {
+      console.warn(`Global shortcut ${store.state.settings.shortcut} could not be registered.`);
     }
 
+    setupAutoUpdater();
     monitorTimer = setInterval(pollClipboard, 700);
 
     app.on('activate', showWindow);
@@ -328,6 +518,7 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
   if (monitorTimer) clearInterval(monitorTimer);
+  if (updateTimer) clearInterval(updateTimer);
   globalShortcut.unregisterAll();
 });
 
