@@ -18,6 +18,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Generate brand asset
+        run: npm run brand:generate
       - name: Syntax check
         run: npm run check
       - name: Unit tests

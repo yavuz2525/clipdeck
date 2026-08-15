@@ -1,6 +1,7 @@
 node_modules/
 dist/
 out/
+build/icon.png
 .DS_Store
 *.log
 coverage/
