@@ -5,13 +5,20 @@ const {
   clipboard,
   globalShortcut,
   ipcMain,
+  Menu,
+  nativeImage,
+  Tray,
 } = require('electron');
 const { HistoryStore } = require('./src/history-store');
 
+const TRAY_ICON_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA9klEQVR4nGNgGOmAEZ+kfH7of2pZ9HDiaqx2YRWkpsWEHMJET8uxmc+ITxIXuBT5Eqec3nJxohwCCwmMEKDEcmLk0QHcAbQOenQAs4+FGMUPJqyCsz+dtCdJvUJBGF61BKMA2TByACH9JKcBagOSHcBnfpAieXRAVBqg1BJ8YMCjgKQQIJSiyUmwRIcAIcuJVUO2A4jxHTkhQFIUUFomUOwAYoOYFIdSNQ2Qo5aqaYActcMjDVDiMKqkAXLyP8kOwOdLSkIA3ibE1yKixAJ8ofNw4mpGshql1ABkN0qpDVAcgKv3Qm2AbA9GCNDaEejmD3jfcMABANvWX/lLOs+WAAAAAElFTkSuQmCC';
+
 let mainWindow = null;
+let tray = null;
 let store = null;
 let monitorTimer = null;
 let lastObservedText = '';
+let isQuitting = false;
 
 function getState() {
   return store.snapshot();
@@ -38,6 +45,66 @@ function pollClipboard() {
   }
 }
 
+function showWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+
+  if (process.platform === 'darwin' && app.dock) app.dock.show();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.setSkipTaskbar(false);
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function refreshTrayMenu() {
+  if (!tray || tray.isDestroyed()) return;
+
+  const paused = Boolean(store?.state.settings.paused);
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'ClipDeck’i Aç',
+      click: showWindow,
+    },
+    {
+      label: paused ? 'Pano Takibini Sürdür' : 'Pano Takibini Duraklat',
+      click: () => {
+        if (!store) return;
+
+        const value = store.setPaused(!paused);
+        if (!value) lastObservedText = clipboard.readText();
+        broadcastState();
+        refreshTrayMenu();
+      },
+    },
+    { type: 'separator' },
+    {
+      label: 'Çıkış',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+}
+
+function createTray() {
+  if (tray && !tray.isDestroyed()) return;
+
+  const icon = nativeImage.createFromDataURL(TRAY_ICON_DATA_URL).resize({
+    width: 16,
+    height: 16,
+  });
+
+  tray = new Tray(icon);
+  tray.setToolTip('ClipDeck — pano geçmişi arka planda çalışıyor');
+  refreshTrayMenu();
+  tray.on('click', showWindow);
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 460,
@@ -62,19 +129,22 @@ function createWindow() {
     mainWindow.show();
   });
 
+  mainWindow.on('close', (event) => {
+    if (isQuitting) return;
+
+    event.preventDefault();
+    mainWindow.setSkipTaskbar(true);
+    mainWindow.hide();
+
+    if (process.platform === 'darwin' && app.dock) app.dock.hide();
+  });
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
-}
-
-function showWindow() {
-  if (!mainWindow || mainWindow.isDestroyed()) {
-    createWindow();
-    return;
-  }
-
-  if (mainWindow.isMinimized()) mainWindow.restore();
-  mainWindow.show();
-  mainWindow.focus();
 }
 
 function registerIpc() {
@@ -113,6 +183,7 @@ function registerIpc() {
     const value = store.setPaused(paused);
     if (!value) lastObservedText = clipboard.readText();
     broadcastState();
+    refreshTrayMenu();
     return { ok: true, paused: value };
   });
 
@@ -129,6 +200,7 @@ app.whenReady().then(() => {
 
   registerIpc();
   createWindow();
+  createTray();
 
   const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+V', showWindow);
   if (!shortcutRegistered) {
@@ -137,9 +209,11 @@ app.whenReady().then(() => {
 
   monitorTimer = setInterval(pollClipboard, 700);
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  app.on('activate', showWindow);
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('will-quit', () => {
@@ -148,5 +222,6 @@ app.on('will-quit', () => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') app.quit();
+  // ClipDeck intentionally keeps running in the background.
+  // Use the tray menu's “Çıkış” item to quit the application completely.
 });
