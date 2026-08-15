@@ -79,7 +79,7 @@ latest.yml
 For normal use you do **not** need Node.js, npm or a CMD window.
 
 1. Open the repository's **Releases** page.
-2. Download `ClipDeck-Setup-0.5.0.exe` or the newest version.
+2. Download `ClipDeck-Setup-0.5.1.exe` or the newest version.
 3. Run the installer.
 4. Launch ClipDeck from the Start menu or desktop shortcut.
 
@@ -130,7 +130,7 @@ npm run dist:win
 Output:
 
 ```text
-dist/ClipDeck-Setup-0.5.0.exe
+dist/ClipDeck-Setup-0.5.1.exe
 ```
 
 ## Tech
