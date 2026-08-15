@@ -72,3 +72,10 @@ test('new history items include their detected tag', () => {
   assert.equal(item.tag, 'Command');
   assert.equal(store.snapshot().items[0].tag, 'Command');
 });
+
+test('quick panel shortcut persists in settings', () => {
+  const store = new HistoryStore();
+  assert.equal(store.snapshot().settings.shortcut, 'CommandOrControl+Shift+V');
+  store.setShortcut('Control+Alt+V');
+  assert.equal(store.snapshot().settings.shortcut, 'Control+Alt+V');
+});
