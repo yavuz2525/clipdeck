@@ -17,6 +17,8 @@ ClipDeck watches copied **text**, keeps a local history on your device, and lets
 - Global show shortcut: `Ctrl/Cmd + Shift + V`
 - Close-to-tray behavior: pressing `X` hides the window but keeps clipboard monitoring active
 - System tray menu to reopen ClipDeck, pause monitoring or quit completely
+- Automatic Windows login startup for packaged builds, launched silently in the background
+- Single-instance protection so launching ClipDeck again reuses the running background process
 - Dark and light mode based on your system
 - Local JSON persistence only
 - No account, analytics, telemetry or cloud sync
@@ -25,6 +27,8 @@ ClipDeck watches copied **text**, keeps a local history on your device, and lets
 
 Pressing the window's `X` button does **not** quit ClipDeck. The window is hidden and ClipDeck continues monitoring the clipboard in the background.
 
+On Windows, packaged builds automatically register ClipDeck to start when you sign in. Login startup uses a hidden launch mode, so no application window is shown; ClipDeck starts directly in the notification area and begins monitoring the clipboard.
+
 Use the ClipDeck icon in the system tray / notification area to:
 
 - Open ClipDeck again
@@ -32,6 +36,8 @@ Use the ClipDeck icon in the system tray / notification area to:
 - Quit ClipDeck completely
 
 You can also reopen the window at any time with `Ctrl/Cmd + Shift + V`.
+
+If ClipDeck is already running in the background and you launch it again from the Start menu or executable, the existing window is brought forward instead of starting a second clipboard monitor.
 
 ## Privacy
 
@@ -67,6 +73,8 @@ npm run package
 ```
 
 The packaged application is written to `dist/` for the operating system you run the command on.
+
+Windows auto-start registration is intentionally enabled only for packaged builds. Running `npm start` during development will not add Electron itself to Windows startup.
 
 > Note: production distribution should use code signing, especially on Windows and macOS, to avoid operating-system trust warnings.
 
