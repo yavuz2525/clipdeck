@@ -10,8 +10,8 @@
     "start": "electron .",
     "check": "node --check main.js && node --check preload.js && node --check src/history-store.js && node --check src/renderer/app.js",
     "test": "node --test",
-    "package": "electron-builder --dir",
-    "dist:win": "electron-builder --win nsis --x64"
+    "package": "electron-builder --dir --publish never",
+    "dist:win": "electron-builder --win nsis --x64 --publish never"
   },
   "engines": {
     "node": ">=22.12.0"
