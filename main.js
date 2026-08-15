@@ -12,6 +12,7 @@ const {
 const { HistoryStore } = require('./src/history-store');
 
 const TRAY_ICON_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA9klEQVR4nGNgGOmAEZ+kfH7of2pZ9HDiaqx2YRWkpsWEHMJET8uxmc+ITxIXuBT5Eqec3nJxohwCCwmMEKDEcmLk0QHcAbQOenQAs4+FGMUPJqyCsz+dtCdJvUJBGF61BKMA2TByACH9JKcBagOSHcBnfpAieXRAVBqg1BJ8YMCjgKQQIJSiyUmwRIcAIcuJVUO2A4jxHTkhQFIUUFomUOwAYoOYFIdSNQ2Qo5aqaYActcMjDVDiMKqkAXLyP8kOwOdLSkIA3ibE1yKixAJ8ofNw4mpGshql1ABkN0qpDVAcgKv3Qm2AbA9GCNDaEejmD3jfcMABANvWX/lLOs+WAAAAAElFTkSuQmCC';
+const WINDOWS_HIDDEN_START_ARG = '--hidden-start';
 
 let mainWindow = null;
 let tray = null;
@@ -19,6 +20,12 @@ let store = null;
 let monitorTimer = null;
 let lastObservedText = '';
 let isQuitting = false;
+
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!hasSingleInstanceLock) {
+  app.quit();
+}
 
 function getState() {
   return store.snapshot();
@@ -47,7 +54,7 @@ function pollClipboard() {
 
 function showWindow() {
   if (!mainWindow || mainWindow.isDestroyed()) {
-    createWindow();
+    createWindow({ showOnReady: true });
     return;
   }
 
@@ -105,7 +112,7 @@ function createTray() {
   tray.on('click', showWindow);
 }
 
-function createWindow() {
+function createWindow({ showOnReady = true } = {}) {
   mainWindow = new BrowserWindow({
     width: 460,
     height: 720,
@@ -115,6 +122,7 @@ function createWindow() {
     autoHideMenuBar: true,
     backgroundColor: '#0f1115',
     show: false,
+    skipTaskbar: !showOnReady,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -126,7 +134,7 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'src', 'renderer', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    if (showOnReady) mainWindow.show();
   });
 
   mainWindow.on('close', (event) => {
@@ -145,6 +153,22 @@ function createWindow() {
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   mainWindow.webContents.on('will-navigate', (event) => event.preventDefault());
+}
+
+function configureWindowsStartup() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+
+  try {
+    app.setLoginItemSettings({
+      openAtLogin: true,
+      enabled: true,
+      name: 'ClipDeck',
+      path: process.execPath,
+      args: [WINDOWS_HIDDEN_START_ARG],
+    });
+  } catch (error) {
+    console.error('Windows startup registration failed:', error);
+  }
 }
 
 function registerIpc() {
@@ -194,23 +218,35 @@ function registerIpc() {
   });
 }
 
-app.whenReady().then(() => {
-  store = new HistoryStore(path.join(app.getPath('userData'), 'clipdeck.json'));
-  lastObservedText = clipboard.readText();
+if (hasSingleInstanceLock) {
+  app.on('second-instance', (_event, argv) => {
+    const isBackgroundStartup = argv.includes(WINDOWS_HIDDEN_START_ARG);
+    if (!isBackgroundStartup) showWindow();
+  });
 
-  registerIpc();
-  createWindow();
-  createTray();
+  app.whenReady().then(() => {
+    store = new HistoryStore(path.join(app.getPath('userData'), 'clipdeck.json'));
+    lastObservedText = clipboard.readText();
 
-  const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+V', showWindow);
-  if (!shortcutRegistered) {
-    console.warn('Global shortcut Ctrl/Cmd+Shift+V could not be registered.');
-  }
+    configureWindowsStartup();
+    registerIpc();
 
-  monitorTimer = setInterval(pollClipboard, 700);
+    const isBackgroundStartup =
+      process.platform === 'win32' && process.argv.includes(WINDOWS_HIDDEN_START_ARG);
 
-  app.on('activate', showWindow);
-});
+    createWindow({ showOnReady: !isBackgroundStartup });
+    createTray();
+
+    const shortcutRegistered = globalShortcut.register('CommandOrControl+Shift+V', showWindow);
+    if (!shortcutRegistered) {
+      console.warn('Global shortcut Ctrl/Cmd+Shift+V could not be registered.');
+    }
+
+    monitorTimer = setInterval(pollClipboard, 700);
+
+    app.on('activate', showWindow);
+  });
+}
 
 app.on('before-quit', () => {
   isQuitting = true;
