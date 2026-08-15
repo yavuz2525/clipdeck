@@ -2,7 +2,7 @@
 
 A fast, privacy-first clipboard productivity app for Windows, macOS and Linux.
 
-ClipDeck keeps clipboard text history locally, gives you a keyboard-first Quick Paste panel, reusable snippets/templates, pinned clips, and an OS-encrypted local password vault. Clipboard content is not uploaded to a cloud service.
+ClipDeck keeps clipboard text history locally, gives you a keyboard-first Quick Paste panel, reusable snippets/templates with inline expansion, pinned clips, and an OS-encrypted local password vault. Clipboard content is not uploaded to a cloud service.
 
 ## Features
 
@@ -20,6 +20,7 @@ ClipDeck keeps clipboard text history locally, gives you a keyboard-first Quick 
 - Configurable history size: 25 / 50 / 100 / 250
 - Close-to-tray background behavior
 - Silent Windows login startup for packaged builds
+- Windows inline snippet expansion
 
 ### Snippets and templates
 
@@ -29,7 +30,11 @@ Save frequently reused text as a snippet. Templates support placeholders such as
 Hello {{name}}, your order {{order_id}} is ready.
 ```
 
-When a template contains variables, ClipDeck asks for the values before copying the rendered result. Any clipboard item can also be converted into a snippet from its card.
+The snippet name also acts as its trigger. For example, create a snippet named `mail` with your email address as the content. In a normal Windows text field, type `mail` and press **Ctrl + Alt + E**. ClipDeck selects the word immediately before the caret and replaces it with the matching snippet.
+
+Templates with `{{variables}}` still use the Fill & copy flow because inline expansion does not prompt for variable values yet. Any clipboard item can also be converted into a snippet from its card.
+
+> Inline expansion currently targets Windows and relies on sending keystrokes to the active application. Elevated/admin applications or unusual text editors may block simulated input.
 
 ### Password generator and local vault
 
@@ -74,7 +79,7 @@ latest.yml
 For normal use you do **not** need Node.js, npm or a CMD window.
 
 1. Open the repository's **Releases** page.
-2. Download `ClipDeck-Setup-0.4.0.exe` or the newest version.
+2. Download `ClipDeck-Setup-0.5.0.exe` or the newest version.
 3. Run the installer.
 4. Launch ClipDeck from the Start menu or desktop shortcut.
 
@@ -125,7 +130,7 @@ npm run dist:win
 Output:
 
 ```text
-dist/ClipDeck-Setup-0.4.0.exe
+dist/ClipDeck-Setup-0.5.0.exe
 ```
 
 ## Tech
@@ -147,6 +152,7 @@ dist/ClipDeck-Setup-0.4.0.exe
 - Optional master-password layer for the Vault
 - Windows code signing
 - Direct paste into the previously focused application
+- Variable-aware inline snippet expansion
 
 ## Contributing
 

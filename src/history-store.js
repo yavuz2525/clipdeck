@@ -3,12 +3,14 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 
 const DEFAULT_SHORTCUT = 'CommandOrControl+Shift+V';
+const DEFAULT_EXPAND_SHORTCUT = 'CommandOrControl+Alt+E';
 const THEMES = new Set(['system', 'dark', 'light']);
 
 const DEFAULT_SETTINGS = Object.freeze({
   limit: 100,
   paused: false,
   shortcut: DEFAULT_SHORTCUT,
+  expandShortcut: DEFAULT_EXPAND_SHORTCUT,
   theme: 'system',
 });
 
@@ -113,6 +115,9 @@ class HistoryStore {
           shortcut: typeof settings.shortcut === 'string' && settings.shortcut.trim()
             ? settings.shortcut.trim()
             : DEFAULT_SHORTCUT,
+          expandShortcut: typeof settings.expandShortcut === 'string' && settings.expandShortcut.trim()
+            ? settings.expandShortcut.trim()
+            : DEFAULT_EXPAND_SHORTCUT,
           theme: clampTheme(settings.theme),
         },
       };
@@ -230,6 +235,13 @@ class HistoryStore {
     return this.state.settings.shortcut;
   }
 
+  setExpandShortcut(shortcut) {
+    if (typeof shortcut !== 'string' || !shortcut.trim()) return this.state.settings.expandShortcut;
+    this.state.settings.expandShortcut = shortcut.trim();
+    this.persist();
+    return this.state.settings.expandShortcut;
+  }
+
   setTheme(theme) {
     this.state.settings.theme = clampTheme(theme);
     this.persist();
@@ -251,6 +263,7 @@ class HistoryStore {
 
 module.exports = {
   DEFAULT_SHORTCUT,
+  DEFAULT_EXPAND_SHORTCUT,
   HistoryStore,
   clampLimit,
   clampTheme,

@@ -1,4 +1,5 @@
 const path = require('node:path');
+const { execFile } = require('node:child_process');
 const {
   app,
   BrowserWindow,
@@ -12,12 +13,17 @@ const {
   Tray,
 } = require('electron');
 const { autoUpdater } = require('electron-updater');
-const { DEFAULT_SHORTCUT, HistoryStore } = require('./src/history-store');
+const {
+  DEFAULT_EXPAND_SHORTCUT,
+  DEFAULT_SHORTCUT,
+  HistoryStore,
+} = require('./src/history-store');
 const { SnippetStore, renderTemplate } = require('./src/snippet-store');
 const { generatePassword } = require('./src/password-generator');
 const { VaultStore } = require('./src/vault-store');
 
-const TRAY_ICON_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA9klEQVR4nGNgGOmAEZ+kfH7of2pZ9HDiaqx2YRWkpsWEHMJET8uxmc+ITxIXuBT5Eqec3nJxohwCCwmMEKDEcmLk0QHcAbQOenQAs4+FGMUPJqyCsz+dtCdJvUJBGF61BKMA2TByACH9JKcBagOSHcBnfpAieXRAVBqg1BJ8YMCjgKQQIJSiyUmwRIcAIcuJVUO2A4jxHTkhQFIUUFomUOwAYoOYFIdSNQ2Qo5aqaYActcMjDVDiMKqkAXLyP8kOwOdLSkIA3ibE1yKixAJ8ofNw4mpGshql1ABkN0qpDVAcgKv3Qm2AbA9GCNDaEejmD3jfcMABANvWX/lLOs+WAAAAAElFTkSuQmCC';
+const FALLBACK_TRAY_ICON_DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAA9klEQVR4nGNgGOmAEZ+kfH7of2pZ9HDiaqx2YRWkpsWEHMJET8uxmc+ITxIXuBT5Eqec3nJxohwCCwmMEKDEcmLk0QHcAbQOenQAs4+FGMUPJqyCsz+dtCdJvUJBGF61BKMA2TByACH9JKcBagOSHcBnfpAieXRAVBqg1BJ8YMCjgKQQIJSiyUmwRIcAIcuJVUO2A4jxHTkhQFIUUFomUOwAYoOYFIdSNQ2Qo5aqaYActcMjDVDiMKqkAXLyP8kOwOdLSkIA3ibE1yKixAJ8ofNw4mpGshql1ABkN0qpDVAcgKv3Qm2AbA9GCNDaEejmD3jfcMABANvWX/lLOs+WAAAAAElFTkSuQmCC';
+const APP_ICON_PATH = path.join(__dirname, 'build', 'icon.png');
 const WINDOWS_HIDDEN_START_ARG = '--hidden-start';
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
@@ -31,6 +37,8 @@ let monitorTimer = null;
 let updateTimer = null;
 let lastObservedText = '';
 let registeredShortcut = null;
+let registeredExpandShortcut = null;
+let snippetExpansionBusy = false;
 let isQuitting = false;
 let updateState = {
   supported: false,
@@ -82,8 +90,12 @@ function setUpdateState(patch) {
   refreshTrayMenu();
 }
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function pollClipboard() {
-  if (!store || store.state.settings.paused) return;
+  if (!store || store.state.settings.paused || snippetExpansionBusy) return;
 
   try {
     const text = clipboard.readText();
@@ -177,15 +189,157 @@ function registerQuickShortcut(shortcut, { persist = false } = {}) {
   };
 }
 
+function runWindowsSendKeys(keys) {
+  if (process.platform !== 'win32') {
+    return Promise.reject(new Error('Inline snippet expansion is currently available on Windows.'));
+  }
+
+  const escaped = String(keys).replaceAll("'", "''");
+  const script = `Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.SendKeys]::SendWait('${escaped}')`;
+
+  return new Promise((resolve, reject) => {
+    execFile(
+      'powershell.exe',
+      ['-NoLogo', '-NoProfile', '-NonInteractive', '-WindowStyle', 'Hidden', '-Command', script],
+      { windowsHide: true, timeout: 4000 },
+      (error) => {
+        if (error) reject(error);
+        else resolve();
+      },
+    );
+  });
+}
+
+async function restoreClipboardAndSelection(previousClipboardText) {
+  clipboard.writeText(previousClipboardText);
+  lastObservedText = previousClipboardText;
+  await runWindowsSendKeys('{RIGHT}').catch(() => {});
+}
+
+async function expandTypedSnippet() {
+  if (process.platform !== 'win32' || snippetExpansionBusy || !snippetStore) return;
+
+  snippetExpansionBusy = true;
+  const previousClipboardText = clipboard.readText();
+  const marker = `__clipdeck_expand_${Date.now()}_${Math.random().toString(16).slice(2)}__`;
+
+  try {
+    await delay(110);
+
+    clipboard.writeText(marker);
+    lastObservedText = marker;
+    await runWindowsSendKeys('^+{LEFT}');
+    await delay(55);
+    await runWindowsSendKeys('^c');
+    await delay(90);
+
+    const selectedText = clipboard.readText();
+    if (!selectedText || selectedText === marker) {
+      await restoreClipboardAndSelection(previousClipboardText);
+      return;
+    }
+
+    lastObservedText = selectedText;
+    const snippet = snippetStore.findByTrigger(selectedText);
+
+    if (!snippet) {
+      await restoreClipboardAndSelection(previousClipboardText);
+      return;
+    }
+
+    if (snippet.variables?.length) {
+      await restoreClipboardAndSelection(previousClipboardText);
+      if (Notification.isSupported()) {
+        new Notification({
+          title: `Snippet “${snippet.name}” needs values`,
+          body: 'Open Snippets and use Fill & copy for templates with variables.',
+        }).show();
+      }
+      return;
+    }
+
+    const rendered = renderTemplate(snippet.template, {});
+    clipboard.writeText(rendered);
+    lastObservedText = rendered;
+    await delay(55);
+    await runWindowsSendKeys('^v');
+  } catch (error) {
+    console.error('Snippet expansion failed:', error);
+    clipboard.writeText(previousClipboardText);
+    lastObservedText = previousClipboardText;
+  } finally {
+    await delay(80);
+    snippetExpansionBusy = false;
+  }
+}
+
+function tryRegisterExpandShortcut(shortcut) {
+  if (process.platform !== 'win32') return false;
+
+  try {
+    return globalShortcut.register(shortcut, expandTypedSnippet);
+  } catch (error) {
+    console.error(`Snippet expansion shortcut registration failed for ${shortcut}:`, error);
+    return false;
+  }
+}
+
+function registerExpandShortcut(shortcut, { persist = false } = {}) {
+  if (process.platform !== 'win32') {
+    return {
+      ok: false,
+      shortcut: store?.state.settings.expandShortcut || DEFAULT_EXPAND_SHORTCUT,
+      error: 'Inline snippet expansion is currently available on Windows.',
+    };
+  }
+
+  const candidate = typeof shortcut === 'string' && shortcut.trim()
+    ? shortcut.trim()
+    : DEFAULT_EXPAND_SHORTCUT;
+  const previous = registeredExpandShortcut;
+
+  if (previous) globalShortcut.unregister(previous);
+
+  if (tryRegisterExpandShortcut(candidate)) {
+    registeredExpandShortcut = candidate;
+    if (persist) store.setExpandShortcut(candidate);
+    broadcastState();
+    return { ok: true, shortcut: candidate };
+  }
+
+  if (previous && tryRegisterExpandShortcut(previous)) {
+    registeredExpandShortcut = previous;
+  } else if (candidate !== DEFAULT_EXPAND_SHORTCUT && tryRegisterExpandShortcut(DEFAULT_EXPAND_SHORTCUT)) {
+    registeredExpandShortcut = DEFAULT_EXPAND_SHORTCUT;
+    if (!previous) store.setExpandShortcut(DEFAULT_EXPAND_SHORTCUT);
+  } else {
+    registeredExpandShortcut = null;
+  }
+
+  broadcastState();
+  return {
+    ok: false,
+    shortcut: registeredExpandShortcut
+      || store.state.settings.expandShortcut
+      || DEFAULT_EXPAND_SHORTCUT,
+    error: 'Bu kısayol başka bir uygulama tarafından kullanılıyor veya Windows tarafından desteklenmiyor.',
+  };
+}
+
 function refreshTrayMenu() {
   if (!tray || tray.isDestroyed()) return;
 
   const paused = Boolean(store?.state.settings.paused);
   const shortcut = store?.state.settings.shortcut || DEFAULT_SHORTCUT;
+  const expandShortcut = store?.state.settings.expandShortcut || DEFAULT_EXPAND_SHORTCUT;
   const template = [
     {
       label: `Hızlı Panel (${shortcut})`,
       click: showQuickPanel,
+    },
+    {
+      label: `Snippet genişletme: ${expandShortcut}`,
+      enabled: false,
     },
     {
       label: 'ClipDeck’i Aç',
@@ -224,12 +378,17 @@ function refreshTrayMenu() {
   tray.setContextMenu(Menu.buildFromTemplate(template));
 }
 
+function getAppIcon() {
+  const icon = nativeImage.createFromPath(APP_ICON_PATH);
+  return icon.isEmpty() ? nativeImage.createFromDataURL(FALLBACK_TRAY_ICON_DATA_URL) : icon;
+}
+
 function createTray() {
   if (tray && !tray.isDestroyed()) return;
 
-  const icon = nativeImage.createFromDataURL(TRAY_ICON_DATA_URL).resize({
-    width: 16,
-    height: 16,
+  const icon = getAppIcon().resize({
+    width: process.platform === 'win32' ? 16 : 18,
+    height: process.platform === 'win32' ? 16 : 18,
   });
 
   tray = new Tray(icon);
@@ -259,6 +418,7 @@ function createWindow({ showOnReady = true } = {}) {
     minWidth: 420,
     minHeight: 560,
     title: 'ClipDeck',
+    icon: APP_ICON_PATH,
     autoHideMenuBar: true,
     backgroundColor: '#0f1115',
     show: false,
@@ -297,6 +457,7 @@ function createQuickWindow() {
     maxWidth: 760,
     maxHeight: 620,
     title: 'ClipDeck Quick Panel',
+    icon: APP_ICON_PATH,
     frame: false,
     resizable: true,
     alwaysOnTop: true,
@@ -517,12 +678,20 @@ function registerIpc() {
     return { ok: true, theme: value };
   });
 
-  ipcMain.handle('settings:shortcut', (_event, shortcut) => registerQuickShortcut(shortcut, { persist: true }));
+  ipcMain.handle('settings:shortcut', (_event, shortcut) => (
+    registerQuickShortcut(shortcut, { persist: true })
+  ));
+
+  ipcMain.handle('settings:expandShortcut', (_event, shortcut) => (
+    registerExpandShortcut(shortcut, { persist: true })
+  ));
 
   ipcMain.handle('snippets:list', () => snippetStore.list());
   ipcMain.handle('snippets:save', (_event, input) => {
     const item = snippetStore.save(input);
-    return item ? { ok: true, item } : { ok: false, error: 'Name and template are required.' };
+    return item
+      ? { ok: true, item }
+      : { ok: false, error: 'Name, trigger and template are required.' };
   });
   ipcMain.handle('snippets:remove', (_event, id) => ({ ok: snippetStore.remove(id) }));
   ipcMain.handle('snippets:copy', (_event, id, values) => {
@@ -541,7 +710,9 @@ function registerIpc() {
   ipcMain.handle('vault:list', async () => {
     try {
       const status = await getVaultStatus();
-      if (!status.available) return { ok: false, items: [], status, error: 'Secure OS storage is unavailable.' };
+      if (!status.available) {
+        return { ok: false, items: [], status, error: 'Secure OS storage is unavailable.' };
+      }
       return { ok: true, items: await vaultStore.list(), status };
     } catch (error) {
       return { ok: false, items: [], error: error.message || 'Vault could not be opened.' };
@@ -594,6 +765,11 @@ if (hasSingleInstanceLock) {
     const shortcutResult = registerQuickShortcut(store.state.settings.shortcut);
     if (!shortcutResult.ok) {
       console.warn(`Global shortcut ${store.state.settings.shortcut} could not be registered.`);
+    }
+
+    const expandShortcutResult = registerExpandShortcut(store.state.settings.expandShortcut);
+    if (!expandShortcutResult.ok && process.platform === 'win32') {
+      console.warn(`Snippet expansion shortcut ${store.state.settings.expandShortcut} could not be registered.`);
     }
 
     setupAutoUpdater();

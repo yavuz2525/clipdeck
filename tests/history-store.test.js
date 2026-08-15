@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { HistoryStore, clampLimit, clampTheme, detectTag } = require('../src/history-store');
+const {
+  DEFAULT_EXPAND_SHORTCUT,
+  HistoryStore,
+  clampLimit,
+  clampTheme,
+  detectTag,
+} = require('../src/history-store');
 
 test('rejects empty clipboard values', () => {
   const store = new HistoryStore();
@@ -74,11 +80,14 @@ test('new history items include tag and pin state', () => {
   assert.equal(item.pinned, false);
 });
 
-test('quick panel shortcut and theme persist in settings', () => {
+test('quick panel shortcut, snippet expansion shortcut and theme persist in settings', () => {
   const store = new HistoryStore();
   store.setShortcut('Control+Alt+V');
+  store.setExpandShortcut('Control+Alt+E');
   store.setTheme('dark');
   assert.equal(store.snapshot().settings.shortcut, 'Control+Alt+V');
+  assert.equal(store.snapshot().settings.expandShortcut, 'Control+Alt+E');
   assert.equal(store.snapshot().settings.theme, 'dark');
   assert.equal(clampTheme('nope'), 'system');
+  assert.equal(new HistoryStore().snapshot().settings.expandShortcut, DEFAULT_EXPAND_SHORTCUT);
 });

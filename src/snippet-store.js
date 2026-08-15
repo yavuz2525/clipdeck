@@ -28,6 +28,16 @@ function renderTemplate(template, values = {}) {
   });
 }
 
+function normalizeTrigger(value) {
+  if (typeof value !== 'string') return '';
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\p{L}\p{N}._-]/gu, '')
+    .slice(0, 64);
+}
+
 class SnippetStore {
   constructor(filePath = null) {
     this.filePath = filePath;
@@ -45,6 +55,7 @@ class SnippetStore {
         .map((item) => ({
           id: typeof item.id === 'string' ? item.id : crypto.randomUUID(),
           name: item.name.trim() || 'Untitled snippet',
+          trigger: normalizeTrigger(item.trigger || item.name),
           template: item.template,
           createdAt: Number(item.createdAt) || Date.now(),
           updatedAt: Number(item.updatedAt) || Number(item.createdAt) || Date.now(),
@@ -73,7 +84,8 @@ class SnippetStore {
   save(input, now = Date.now()) {
     const name = typeof input?.name === 'string' ? input.name.trim() : '';
     const template = typeof input?.template === 'string' ? input.template : '';
-    if (!name || !template.trim()) return null;
+    const trigger = normalizeTrigger(input?.trigger || name);
+    if (!name || !trigger || !template.trim()) return null;
 
     const id = typeof input.id === 'string' ? input.id : null;
     const index = id ? this.items.findIndex((item) => item.id === id) : -1;
@@ -83,6 +95,7 @@ class SnippetStore {
       item = {
         ...this.items[index],
         name,
+        trigger,
         template,
         updatedAt: now,
       };
@@ -91,6 +104,7 @@ class SnippetStore {
       item = {
         id: crypto.randomUUID(),
         name,
+        trigger,
         template,
         createdAt: now,
         updatedAt: now,
@@ -114,10 +128,18 @@ class SnippetStore {
     const item = this.items.find((entry) => entry.id === id);
     return item ? { ...item, variables: extractVariables(item.template) } : null;
   }
+
+  findByTrigger(trigger) {
+    const normalized = normalizeTrigger(trigger);
+    if (!normalized) return null;
+    const item = this.items.find((entry) => entry.trigger === normalized);
+    return item ? { ...item, variables: extractVariables(item.template) } : null;
+  }
 }
 
 module.exports = {
   SnippetStore,
   extractVariables,
+  normalizeTrigger,
   renderTemplate,
 };
