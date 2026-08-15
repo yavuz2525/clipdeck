@@ -15,9 +15,23 @@ ClipDeck watches copied **text**, keeps a local history on your device, and lets
 - Pause/resume monitoring
 - Configurable history size: 25 / 50 / 100 / 250
 - Global show shortcut: `Ctrl/Cmd + Shift + V`
+- Close-to-tray behavior: pressing `X` hides the window but keeps clipboard monitoring active
+- System tray menu to reopen ClipDeck, pause monitoring or quit completely
 - Dark and light mode based on your system
 - Local JSON persistence only
 - No account, analytics, telemetry or cloud sync
+
+## Background behavior
+
+Pressing the window's `X` button does **not** quit ClipDeck. The window is hidden and ClipDeck continues monitoring the clipboard in the background.
+
+Use the ClipDeck icon in the system tray / notification area to:
+
+- Open ClipDeck again
+- Pause or resume clipboard monitoring
+- Quit ClipDeck completely
+
+You can also reopen the window at any time with `Ctrl/Cmd + Shift + V`.
 
 ## Privacy
 
@@ -70,7 +84,6 @@ The packaged application is written to `dist/` for the operating system you run 
 - Custom keyboard navigation
 - Optional encrypted storage
 - Exclusion rules for selected applications
-- Tray mode
 - Import/export
 
 ## Contributing
