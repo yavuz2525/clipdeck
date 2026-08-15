@@ -271,3 +271,90 @@ kbd { padding: 1px 4px; border: 1px solid var(--line); border-bottom-width: 2px;
   .search-wrap input::placeholder { color: #98a2b3; }
   .status-banner { color: #805b05; }
 }
+
+.topbar-actions { display: flex; gap: 8px; }
+
+.settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background: rgba(7, 10, 15, 0.68);
+}
+
+.settings-panel {
+  width: min(100%, 430px);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.36);
+}
+
+.settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.settings-header h2 { margin: 0; font-size: 19px; }
+.settings-header p { margin: 5px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+
+.setting-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+}
+.setting-card + .setting-card { margin-top: 10px; }
+.setting-copy h3 { margin: 0 0 5px; font-size: 14px; }
+.setting-copy p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.5; }
+
+.shortcut-capture {
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 750;
+  letter-spacing: 0.01em;
+}
+.shortcut-capture.recording {
+  border-color: var(--accent);
+  color: var(--accent-strong);
+}
+.setting-error { color: var(--danger); font-size: 11px; line-height: 1.4; }
+.setting-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.text-button.primary { color: var(--accent-strong); border-color: rgba(120, 169, 255, 0.48); }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+.update-status { margin-top: 7px !important; }
+.update-status.error { color: var(--danger); }
+.update-progress-wrap {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--panel-2);
+}
+.update-progress {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 180ms ease;
+}
+
+@media (max-width: 420px) {
+  .settings-overlay { padding: 10px; }
+  .settings-panel { max-height: calc(100vh - 20px); padding: 14px; }
+}
