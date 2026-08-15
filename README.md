@@ -23,6 +23,21 @@ ClipDeck watches copied **text**, keeps a local history on your device, and lets
 - Local JSON persistence only
 - No account, analytics, telemetry or cloud sync
 
+## Install on Windows
+
+For normal use, you do **not** need Node.js, npm or a CMD window.
+
+1. Open the repository's **Releases** page.
+2. Download `ClipDeck-Setup-0.1.0.exe` (or the newest version).
+3. Run the installer and complete setup.
+4. Launch ClipDeck normally from the Start menu or desktop shortcut.
+
+Once installed, ClipDeck runs like a normal Windows application. Closing the window with `X` keeps it running in the notification area, and Windows login startup launches it silently in the background.
+
+The installer is built automatically on a Windows GitHub Actions runner using the NSIS target.
+
+> The current open-source build is not code-signed, so Windows may show a SmartScreen / unknown publisher warning. Code signing can be added later for trusted public distribution.
+
 ## Background behavior
 
 Pressing the window's `X` button does **not** quit ClipDeck. The window is hidden and ClipDeck continues monitoring the clipboard in the background.
@@ -45,7 +60,7 @@ ClipDeck is intentionally local-first. Clipboard text is stored only in the Elec
 
 Clipboard contents can contain sensitive information. Pause monitoring before copying passwords, tokens or other secrets that you do not want stored in history.
 
-## Run locally
+## Development
 
 Requirements:
 
@@ -59,6 +74,8 @@ npm install
 npm start
 ```
 
+`npm start` is development mode. Closing the terminal that launched Electron can end that development session. Use the installed `.exe` build for everyday use.
+
 ## Validate
 
 ```bash
@@ -66,21 +83,31 @@ npm run check
 npm test
 ```
 
-## Package the app
+## Build the Windows installer locally
+
+On Windows:
 
 ```bash
-npm run package
+npm install
+npm run dist:win
 ```
 
-The packaged application is written to `dist/` for the operating system you run the command on.
+The NSIS installer is written to:
+
+```text
+dist/ClipDeck-Setup-0.1.0.exe
+```
 
 Windows auto-start registration is intentionally enabled only for packaged builds. Running `npm start` during development will not add Electron itself to Windows startup.
 
-> Note: production distribution should use code signing, especially on Windows and macOS, to avoid operating-system trust warnings.
+## Releases
+
+`.github/workflows/windows-release.yml` builds the x64 Windows installer on every push to `main` and can also be run manually. It creates or updates the GitHub Release matching the version in `package.json` and uploads the installer.
 
 ## Tech
 
 - Electron
+- electron-builder + NSIS
 - Vanilla HTML, CSS and JavaScript
 - Node.js built-in test runner
 - No frontend framework
@@ -93,6 +120,8 @@ Windows auto-start registration is intentionally enabled only for packaged build
 - Optional encrypted storage
 - Exclusion rules for selected applications
 - Import/export
+- Windows code signing
+- Automatic app updates
 
 ## Contributing
 
