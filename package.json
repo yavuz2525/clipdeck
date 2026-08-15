@@ -10,7 +10,8 @@
     "start": "electron .",
     "check": "node --check main.js && node --check preload.js && node --check src/history-store.js && node --check src/renderer/app.js",
     "test": "node --test",
-    "package": "electron-packager . ClipDeck --overwrite --out=dist --ignore='^/dist($|/)' --prune=true"
+    "package": "electron-builder --dir",
+    "dist:win": "electron-builder --win nsis --x64"
   },
   "engines": {
     "node": ">=22.12.0"
@@ -23,7 +24,47 @@
     "open-source"
   ],
   "devDependencies": {
-    "@electron/packager": "20.0.4",
-    "electron": "43.2.0"
+    "electron": "43.2.0",
+    "electron-builder": "26.15.7"
+  },
+  "build": {
+    "appId": "io.github.yavuz2525.clipdeck",
+    "productName": "ClipDeck",
+    "asar": true,
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "ClipDeck-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ClipDeck",
+      "runAfterFinish": true
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "yavuz2525",
+        "repo": "clipdeck"
+      }
+    ]
   }
 }
