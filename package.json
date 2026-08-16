@@ -1,8 +1,8 @@
 {
   "name": "clipdeck",
-  "version": "0.5.2",
+  "version": "0.6.0",
   "description": "A fast, private, open-source clipboard history manager for Windows, macOS and Linux.",
-  "main": "main.js",
+  "main": "bootstrap.js",
   "author": "Yavuz Cingöz",
   "license": "MIT",
   "private": false,
@@ -10,7 +10,7 @@
     "brand:generate": "node scripts/generate-brand-assets.js",
     "prestart": "npm run brand:generate",
     "start": "electron .",
-    "check": "node --check main.js && node --check preload.js && node --check scripts/generate-brand-assets.js && node --check src/history-store.js && node --check src/snippet-store.js && node --check src/password-generator.js && node --check src/vault-store.js && node --check src/renderer/app.js && node --check src/quick/app.js",
+    "check": "node --check bootstrap.js && node --check main.js && node --check preload.js && node --check scripts/generate-brand-assets.js && node --check src/history-store.js && node --check src/image-store.js && node --check src/media-services.js && node --check src/media-settings.js && node --check src/snippet-store.js && node --check src/password-generator.js && node --check src/vault-store.js && node --check src/renderer/app.js && node --check src/quick/app.js && node --check src/suggest/controller.js && node --check src/suggest/preload.js && node --check src/suggest/app.js",
     "test": "node --test",
     "prepackage": "npm run brand:generate",
     "package": "electron-builder --dir --publish never",
@@ -35,11 +35,18 @@
     "appId": "io.github.yavuz2525.clipdeck",
     "productName": "ClipDeck",
     "asar": true,
+    "asarUnpack": [
+      "node_modules/uiohook-napi/**/*",
+      "node_modules/tesseract.js/**/*",
+      "node_modules/tesseract.js-core/**/*",
+      "node_modules/@tesseract.js-data/**/*"
+    ],
     "directories": {
       "output": "dist",
       "buildResources": "build"
     },
     "files": [
+      "bootstrap.js",
       "main.js",
       "preload.js",
       "src/**/*",
@@ -76,6 +83,13 @@
     ]
   },
   "dependencies": {
-    "electron-updater": "6.8.9"
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/tur": "1.0.0",
+    "electron-updater": "6.8.9",
+    "jsqr": "1.4.0",
+    "pngjs": "7.0.0",
+    "qrcode": "1.5.4",
+    "tesseract.js": "7.0.0",
+    "uiohook-napi": "1.5.4"
   }
 }
