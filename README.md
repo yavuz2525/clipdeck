@@ -5,7 +5,7 @@
 <h1 align="center">ClipDeck</h1>
 
 <p align="center">
-  A fast, privacy-first clipboard productivity app with Quick Paste, smart history, reusable snippets, password tools and a local encrypted vault.
+  A privacy-first Windows clipboard productivity app with Quick Paste, text and image history, reusable snippets, local OCR/QR tools, password generation and an OS-encrypted local vault.
 </p>
 
 <p align="center">
@@ -21,29 +21,25 @@
 
 ---
 
-## Why ClipDeck?
-
-ClipDeck keeps the things you copy close at hand without turning clipboard history into a cloud service. Text history, snippets, settings and vault data stay local to your machine. The main workflow is keyboard-first: open Quick Paste, search, choose, continue working.
-
 ## Highlights
 
 | Feature | What it does |
 | --- | --- |
-| **Quick Paste** | Open a compact global panel, search your recent clipboard and copy an item with the keyboard. |
-| **History timeline** | Groups clips into Today, Yesterday, This Week and Older. |
-| **Automatic tags** | Detects URL, Email, JSON, SQL, Command, Code, Phone, Color, IP, Path and Text locally. |
-| **Pinned clips** | Keeps important clipboard entries above regular history. |
+| **Quick Paste** | Open a compact global panel, search recent clipboard text and copy an item with the keyboard. |
+| **Text history** | Timeline, search, automatic local tags, favorites and pinned clips. |
+| **Image / screenshot history** | Keeps copied images and screenshots locally as PNG files in a dedicated Images view. |
+| **Local OCR** | Extracts English and Turkish text from saved clipboard images without sending them to an API. |
+| **QR Center** | Generate QR images from text/URLs and scan QR codes from the clipboard or saved images. |
 | **Snippets & templates** | Save reusable text and `{{variable}}` templates. |
-| **Inline snippet expansion** | Type a snippet trigger such as `mail`, press your expansion shortcut and replace it inline on Windows. |
+| **Inline snippet expansion** | Type a trigger such as `mail`, press the configurable expansion shortcut and replace it inline on Windows. |
+| **Snippet suggestions** | Shows matching snippet triggers in a small popup while you type. |
 | **Password generator** | Creates passwords locally using cryptographic randomness. |
 | **Local Vault** | Stores login details using Electron `safeStorage` / Windows DPAPI. |
 | **Themes** | System, Dark and Light modes. |
-| **Automatic updates** | Installed Windows builds can download new GitHub Releases in the background. |
-| **Tray + startup** | Closing the window keeps ClipDeck alive; packaged Windows builds can start silently at sign-in. |
+| **Automatic updates** | Installed Windows builds download new GitHub Releases in the background. |
+| **Tray + startup** | Closing the window keeps ClipDeck alive; packaged Windows builds start silently at sign-in. |
 
-## Quick workflows
-
-### Quick Paste
+## Quick Paste
 
 Default shortcut:
 
@@ -51,9 +47,24 @@ Default shortcut:
 Ctrl + Shift + V
 ```
 
-Open the panel, type to search, use `↑` / `↓`, then press `Enter` to copy the selected item.
+Open the panel, type to search, use `↑` / `↓`, then press `Enter` to copy the selected text item.
 
-### Inline snippet expansion
+## Image history, OCR and QR
+
+Copy a screenshot or image and ClipDeck stores a local PNG copy in the **Images** section. Images can be pinned, copied again, deleted, processed with OCR, or scanned for a QR code.
+
+OCR runs locally using bundled English + Turkish Tesseract language data. The image is not uploaded to a cloud OCR service.
+
+The **QR** section can:
+
+- Generate a QR code from text or a URL.
+- Copy the generated QR as an image.
+- Scan a QR code from the current clipboard image.
+- Scan QR codes from images already stored in Image History.
+
+Generated QR images can also become part of Image History.
+
+## Snippets, inline expansion and suggestions
 
 Create a snippet:
 
@@ -62,39 +73,27 @@ Name / trigger: mail
 Template: you@example.com
 ```
 
-Then type:
+Type `mail` in another Windows application. ClipDeck can show a small matching-trigger suggestion popup while you type. To replace the trigger, press the snippet expansion shortcut.
 
-```text
-mail
-```
-
-and press the snippet expansion shortcut. ClipDeck replaces the word immediately before the caret with the snippet content.
-
-Default on Windows:
+Default:
 
 ```text
 Ctrl + Alt + E
 ```
 
-Both the Quick Paste shortcut and the snippet expansion shortcut can be changed from **Settings**.
+Both the Quick Paste shortcut and snippet expansion shortcut are configurable in **Settings**. Snippet suggestions can also be disabled there.
 
-Templates containing variables such as `Hello {{name}}` still use the **Fill & copy** flow.
+Templates containing variables such as `Hello {{name}}` still use **Fill & copy**.
 
-> Inline expansion uses simulated keyboard input on Windows. Elevated/admin applications and some unusual editors may block it.
+> The suggestion feature uses a Windows global keyboard hook. ClipDeck keeps only the current short trigger-shaped token in memory for matching; the typed token is not written to disk. The popup does not intercept your keys. Disable **Snippet suggestions** in Settings if you do not want global suggestion monitoring.
+
+> Inline expansion uses simulated keyboard input on Windows. Elevated/admin applications and unusual editors may block it.
 
 ## Password generator & local Vault
 
 The generator supports configurable length plus lowercase, uppercase, number and symbol character classes.
 
-Vault entries can store:
-
-- Title
-- Username / email
-- Password
-- URL
-- Notes
-
-Vault payloads are encrypted before they are written to disk with Electron `safeStorage`. On Windows this uses DPAPI tied to the logged-in Windows user. Passwords copied through the Vault or generator are deliberately excluded from ClipDeck's own clipboard history.
+Vault entries can store title, username/email, password, URL and notes. Vault payloads are encrypted before disk storage with Electron `safeStorage`; on Windows this uses DPAPI tied to the logged-in user. Passwords copied through the Vault or generator are excluded from ClipDeck's own clipboard history.
 
 > ClipDeck Vault is a convenient local OS-encrypted store, not a replacement for a dedicated independently audited password manager.
 
@@ -113,7 +112,7 @@ Closing the main window with `X` keeps ClipDeck running in the notification area
 
 ## Automatic updates
 
-Installed Windows builds use `electron-updater`. ClipDeck periodically checks GitHub Releases, downloads a newer version in the background and offers **Restart and update** when it is ready.
+Installed Windows builds use `electron-updater`. ClipDeck checks GitHub Releases, downloads newer versions in the background and offers **Restart and update** when ready.
 
 Each release publishes:
 
@@ -124,17 +123,19 @@ latest.yml
 clipdeck-logo.png
 ```
 
-## Privacy & security
+## Privacy & local storage
 
-- Clipboard history stays local.
+- Text clipboard history stays local.
+- Clipboard images are stored locally under ClipDeck's Electron user-data directory.
+- OCR runs locally with bundled language data.
+- QR generation/scanning runs locally.
 - Snippets and settings stay local.
-- Renderer Node integration is disabled.
-- Context isolation is enabled.
-- Renderer CSP blocks network connections.
-- Vault data is stored separately and encrypted with the operating system protection layer.
-- Passwords copied through ClipDeck's password tools are not inserted into ClipDeck history.
+- Snippet suggestions keep only the current bounded trigger candidate in RAM and do not persist typed input.
+- Renderer Node integration is disabled and context isolation is enabled.
+- Vault data is stored separately and encrypted with the operating-system protection layer.
+- Passwords copied through ClipDeck's password tools are excluded from ClipDeck history.
 
-Clipboard history can still contain secrets copied from other applications. Pause monitoring before copying anything you do not want saved.
+Clipboard history can still contain sensitive content copied from other applications. Pause monitoring or disable the relevant history feature before copying anything you do not want stored.
 
 ## Development
 
@@ -150,8 +151,6 @@ npm install
 npm start
 ```
 
-`npm start` is development mode. The pre-start script reconstructs `build/icon.png` from the repository's text-based brand source before Electron launches.
-
 ### Validate
 
 ```bash
@@ -161,45 +160,43 @@ npm test
 
 ### Build the Windows installer
 
-On Windows:
-
 ```bash
 npm install
 npm run dist:win
 ```
 
-Output:
+Output for this release:
 
 ```text
-dist/ClipDeck-Setup-0.5.2.exe
+dist/ClipDeck-Setup-0.6.0.exe
 ```
-
-## Brand asset workflow
-
-The app logo is stored in the repository as a compact text source at `assets/brand/icon.hex`. `npm run brand:generate` reconstructs `build/icon.png` before development and packaging. This avoids requiring binary/Base64 GitHub blob uploads when updating the logo.
-
-The generated PNG is used for the app window, tray and Windows package source. electron-builder converts the PNG into the platform-specific icon formats needed by the Windows build.
 
 ## Tech
 
 - Electron
 - electron-builder + NSIS
 - electron-updater
+- Tesseract.js with bundled English/Turkish language data
+- qrcode + jsQR + pngjs
+- uiohook-napi for Windows snippet suggestions
 - Electron `safeStorage`
 - Vanilla HTML, CSS and JavaScript
 - Node.js built-in `crypto`
 - Node.js built-in test runner
-- No frontend framework
+
+## Brand asset workflow
+
+The app logo is stored as a compact text source at `assets/brand/icon.hex`. `npm run brand:generate` reconstructs `build/icon.png` before development and packaging, avoiding large binary/Base64 GitHub blob uploads.
 
 ## Roadmap
 
-- Image clipboard history
 - App exclusion rules for password managers and selected applications
 - Import / export
 - Optional master-password layer for the Vault
 - Windows code signing
 - Direct paste into the previously focused application
 - Variable-aware inline snippet expansion
+- Richer image search and OCR indexing
 
 ## Contributing
 
