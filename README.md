@@ -158,6 +158,8 @@ npm run check
 npm test
 ```
 
+See [ARCHITECTURE.md](ARCHITECTURE.md) for the Electron process boundary and renderer/preload responsibilities.
+
 ### Build the Windows installer
 
 ```bash
@@ -168,7 +170,7 @@ npm run dist:win
 Output for this release:
 
 ```text
-dist/ClipDeck-Setup-0.6.1.exe
+dist/ClipDeck-Setup-0.6.2.exe
 ```
 
 ## Tech
