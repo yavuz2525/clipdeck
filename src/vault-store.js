@@ -104,7 +104,4 @@ class VaultStore {
   }
 }
 
-module.exports = {
-  VaultStore,
-  sanitizeEntry,
-};
+module.exports = { VaultStore };
