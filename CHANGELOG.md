@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1
+
+- Removed the obsolete Quick Panel brand stylesheet and merged active logo rules into the main Quick Panel stylesheet.
+- Removed unused internal module exports from media settings, password generation, Vault, and snippet suggestions.
+- Removed an unused cached snippet identifier from the suggestion controller.
+- Reused the ImageStore public-item mapper instead of duplicating field stripping logic.
+- Updated the package description to match ClipDeck's current Windows-first focus.
+
 ## 0.6.0
 
 - Added local image and screenshot clipboard history.
