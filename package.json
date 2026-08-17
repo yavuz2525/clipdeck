@@ -1,6 +1,6 @@
 {
   "name": "clipdeck",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "A fast, private, open-source Windows clipboard productivity app.",
   "main": "bootstrap.js",
   "author": "Yavuz Cingöz",
@@ -10,7 +10,7 @@
     "brand:generate": "node scripts/generate-brand-assets.js",
     "prestart": "npm run brand:generate",
     "start": "electron .",
-    "check": "node --check bootstrap.js && node --check main.js && node --check preload.js && node --check scripts/generate-brand-assets.js && node --check src/history-store.js && node --check src/image-store.js && node --check src/media-services.js && node --check src/media-settings.js && node --check src/snippet-store.js && node --check src/password-generator.js && node --check src/vault-store.js && node --check src/renderer/app.js && node --check src/quick/app.js && node --check src/suggest/controller.js && node --check src/suggest/preload.js && node --check src/suggest/app.js",
+    "check": "node --check bootstrap.js && node --check main.js && node --check preload.js && node --check scripts/generate-brand-assets.js && node --check src/history-store.js && node --check src/image-store.js && node --check src/media-services.js && node --check src/media-settings.js && node --check src/snippet-store.js && node --check src/password-generator.js && node --check src/vault-store.js && node --check src/renderer/app.js && node --check src/renderer/shortcut-settings.js && node --check src/renderer/media-ui.js && node --check src/quick/app.js && node --check src/suggest/controller.js && node --check src/suggest/preload.js && node --check src/suggest/app.js",
     "test": "node --test",
     "prepackage": "npm run brand:generate",
     "package": "electron-builder --dir --publish never",
