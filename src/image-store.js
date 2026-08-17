@@ -55,7 +55,7 @@ class ImageStore {
   }
 
   list() {
-    return this.items.map(({ fileName, hash, ...item }) => ({ ...item }));
+    return this.items.map((item) => this.publicItem(item));
   }
 
   get(id) {
