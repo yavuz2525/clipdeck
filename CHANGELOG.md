@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.6.2
+
+- Refactored `preload.js` into a DOM-free, allowlisted IPC bridge only.
+- Moved snippet expansion settings behavior into `src/renderer/shortcut-settings.js`.
+- Moved image history, OCR, QR and media settings behavior into `src/renderer/media-ui.js`.
+- Made Images, QR and media settings markup part of the static renderer HTML instead of constructing it inside preload.
+- Added architecture tests that prevent DOM/UI logic from drifting back into preload.
+- Kept all existing clipboard, image, OCR, QR, Vault, snippet and updater behavior intact.
+
 ## 0.6.1
 
 - Removed the obsolete Quick Panel brand stylesheet and merged active logo rules into the main Quick Panel stylesheet.
