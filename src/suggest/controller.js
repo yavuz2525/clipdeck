@@ -126,7 +126,6 @@ class SnippetSuggestionController {
       this.cache = items
         .filter((item) => item && typeof item.trigger === 'string' && item.trigger.trim())
         .map((item) => ({
-          id: item.id,
           name: String(item.name || item.trigger),
           trigger: String(item.trigger).toLocaleLowerCase(),
           template: String(item.template || ''),
@@ -225,6 +224,5 @@ class SnippetSuggestionController {
 
 module.exports = {
   SnippetSuggestionController,
-  createKeyMap,
   normalizeToken,
 };
