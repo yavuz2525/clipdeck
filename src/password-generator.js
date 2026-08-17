@@ -40,7 +40,6 @@ function generatePassword(options = {}) {
 }
 
 module.exports = {
-  SETS,
   clampLength,
   generatePassword,
 };
