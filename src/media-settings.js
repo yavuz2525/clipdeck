@@ -45,4 +45,4 @@ class MediaSettingsStore {
   }
 }
 
-module.exports = { DEFAULT_MEDIA_SETTINGS, MediaSettingsStore };
+module.exports = { MediaSettingsStore };
