@@ -168,7 +168,7 @@ npm run dist:win
 Output for this release:
 
 ```text
-dist/ClipDeck-Setup-0.6.0.exe
+dist/ClipDeck-Setup-0.6.1.exe
 ```
 
 ## Tech
