@@ -10,6 +10,7 @@
   <title>ClipDeck</title>
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./enhancements.css" />
+  <link rel="stylesheet" href="./media-tools.css" />
 </head>
 <body>
   <main class="shell">
@@ -33,6 +34,8 @@
       <button class="view-tab active" type="button" data-view="history">History</button>
       <button class="view-tab" type="button" data-view="snippets">Snippets</button>
       <button class="view-tab" type="button" data-view="vault">Vault</button>
+      <button id="imagesTab" class="view-tab" type="button" data-view="images">Images</button>
+      <button id="qrTab" class="view-tab" type="button" data-view="qr">QR</button>
     </nav>
 
     <section id="historyView" class="app-view">
@@ -143,11 +146,58 @@
       <section id="vaultList" class="content-list" aria-label="Password vault"></section>
     </section>
 
+    <section id="mediaImagesView" class="app-view hidden">
+      <div class="section-head">
+        <div>
+          <h2>Image history</h2>
+          <p>Screenshots and copied images stay on this device.</p>
+        </div>
+        <button id="mediaClearImages" class="text-button danger" type="button">Clear images</button>
+      </div>
+      <div class="media-tip">
+        <strong>OCR + QR</strong>
+        <span>Extract Turkish/English text locally or scan QR codes from any saved image.</span>
+      </div>
+      <div id="mediaOcrStatus" class="subtle" aria-live="polite"></div>
+      <section id="mediaImagesEmpty" class="empty-state hidden">
+        <div class="empty-icon" aria-hidden="true">▧</div>
+        <h2>No images yet</h2>
+        <p>Copy a screenshot or image and it will appear here.</p>
+      </section>
+      <section id="mediaImagesGrid" class="media-images-grid" aria-label="Image clipboard history"></section>
+    </section>
+
+    <section id="qrCenterView" class="app-view hidden">
+      <div class="section-head">
+        <div>
+          <h2>QR Center</h2>
+          <p>Create a QR from text or scan one directly from the clipboard.</p>
+        </div>
+      </div>
+      <section class="qr-card">
+        <label class="field">Text or URL<textarea id="qrInput" rows="5" placeholder="https://example.com"></textarea></label>
+        <div class="content-actions">
+          <button id="qrGenerate" class="text-button primary" type="button">Generate QR</button>
+          <button id="qrScanClipboard" class="text-button" type="button">Scan clipboard image</button>
+        </div>
+        <div id="qrPreviewWrap" class="qr-preview-wrap hidden">
+          <img id="qrPreview" alt="Generated QR code" />
+          <button id="qrCopyImage" class="text-button" type="button">Copy QR image</button>
+        </div>
+        <div id="qrResultWrap" class="analysis-box hidden">
+          <strong>Scanned content</strong>
+          <pre id="qrResult"></pre>
+          <button id="qrCopyResult" class="text-button" type="button">Copy result</button>
+        </div>
+        <div id="qrStatus" class="subtle" aria-live="polite"></div>
+      </section>
+    </section>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <footer class="footer">
       <span>Quick panel: <kbd id="footerShortcut">Ctrl/⌘ + Shift + V</kbd></span>
-      <span>Expand snippet: <kbd>Ctrl + Alt + E</kbd></span>
+      <span>Expand snippet: <kbd id="footerExpandShortcut">Ctrl + Alt + E</kbd></span>
       <span>Local first</span>
     </footer>
   </main>
@@ -186,7 +236,20 @@
       <div class="setting-card">
         <div class="setting-copy">
           <h3>Snippet expansion</h3>
-          <p>On Windows, type a snippet name and press <kbd>Ctrl + Alt + E</kbd> to expand it inline.</p>
+          <p>On Windows, type a snippet name and press the configured shortcut to expand it inline.</p>
+        </div>
+        <button id="expandShortcutCapture" class="shortcut-capture" type="button">Ctrl/⌘ + Alt + E</button>
+        <div id="expandShortcutError" class="setting-error hidden" role="alert"></div>
+      </div>
+
+      <div class="setting-card media-setting-card">
+        <div class="setting-copy">
+          <h3>Media & snippet suggestions</h3>
+          <p>Keep image history and show snippet matches while you type. Suggestions only keep the current trigger-shaped token in memory; it is never written to disk.</p>
+        </div>
+        <div class="media-toggle-stack">
+          <label><input id="mediaImageHistoryToggle" type="checkbox" /> Image history</label>
+          <label><input id="mediaSuggestionToggle" type="checkbox" /> Snippet suggestions</label>
         </div>
       </div>
 
@@ -291,6 +354,8 @@
     </article>
   </template>
 
+  <script src="./shortcut-settings.js"></script>
+  <script src="./media-ui.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
